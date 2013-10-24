@@ -15,14 +15,20 @@ include KEYB.INC
 ; --- MACROS AND CONSTANTS -----------------------------------------------------
 
 ; Other constants	
-SCREENW		equ 320
-SCREENH		equ 200
+SCREENW         equ 320
+SCREENH         equ 200
+RECT_SIZE       equ 5
+DIRECTION_LEFT  equ 0001b
+DIRECTION_RIGHT equ 0010b
+DIRECTION_DOWN  equ 0100b
+DIRECTION_UP    equ 1000b
 
 ; --- DATA SEGMENT -------------------------------------------------------------
 .DATA        ; data segment, variables
 oldVideoMode	db ?
 
-hardOffset	dw 0 ; rectangle position offset
+hardOffset	  dw 0 ; rectangle position offset
+hardDirection	dw 0000b ; rectangle direction
 
 ; --- SCREEN BUFFER ------------------------------------------------------------
 .FARDATA?	; segment that contains the screenBuffer for mode 13h drawing
@@ -31,7 +37,8 @@ screenBuffer	db 64000 dup(?)	; the 64000 bytes for the screen
 
 ; --- CODE SEGMENT -------------------------------------------------------------
 .CODE        ; code segment
-main PROC NEAR
+
+main PROC NEAR ; {{{1
 	mov	ax, @data	; get data segment address
 	mov	ds, ax		; set DS to data segment
 
@@ -59,6 +66,7 @@ main PROC NEAR
 @main_loop:	
 	;call	updateWorld	; this would contain the game code (like AI)
 
+  call  updateWorld
 	call	renderWorld	; draws the world
 	
 	call	handleInput	; handle user input
@@ -68,8 +76,6 @@ main PROC NEAR
 	; Restore original keyboard handler
 	call	uninstallKeyboardHandler
 
-	; Restore original video mode
-	mov		al, [oldVideoMode]
 	xor		ah, ah
 	push	ax
 	call	setVideoMode
@@ -80,7 +86,7 @@ main PROC NEAR
 main ENDP
 
 ; Fades the active colors to black
-fadeToBlack PROC NEAR
+fadeToBlack PROC NEAR ; {{{1
 	push	ax
 
 	mov	ax, seg palette
@@ -99,7 +105,7 @@ fadeToBlack PROC NEAR
 fadeToBlack ENDP
 
 ; Clears the screen buffer to color 0
-clearScreenBuffer PROC NEAR
+clearScreenBuffer PROC NEAR ; {{{1
 	push	ax
 	push	cx
 	push	di
@@ -121,7 +127,7 @@ clearScreenBuffer PROC NEAR
 clearScreenBuffer ENDP
 
 ; Updates the screen (copies contents from screenBuffer to screen)
-updateScreen PROC NEAR
+updateScreen PROC NEAR ; {{{1
 	push	ax
 	push	cx
 	push	dx
@@ -153,19 +159,44 @@ updateScreen PROC NEAR
 	ret		0
 updateScreen ENDP
 
-renderWorld PROC NEAR
+updateWorld PROC NEAR ; {{{1
+  mov ax, [hardDirection]
+
+  cmp ax, DIRECTION_LEFT
+  jnz @F
+  dec [hardOffset]
+@@:
+
+  cmp ax, DIRECTION_RIGHT
+  jnz @F
+  inc [hardOffset]
+@@:
+
+  cmp ax, DIRECTION_UP
+  jnz @F
+	mov	ax, SCREENW
+	sub [hardOffset], ax
+@@:
+
+  cmp ax, DIRECTION_DOWN
+  jnz @F
+	mov	ax, SCREENW
+	add [hardOffset], ax
+@@:
+
+  ret 0
+updateWorld ENDP
+
+renderWorld PROC NEAR ; {{{1
 	push	ax
 	
 	call	clearScreenBuffer
 
 	; draw a random rectangle
-	call	rand
-	and		ax, 0ffh
-	push	ax
-	call	rand
-	and		ax, 07fh
-	push	ax
-	call 	drawRect
+  mov  ax, RECT_SIZE
+	push ax
+	push ax
+	call drawRect
 
 	; draw the screen buffer
 	call 	updateScreen
@@ -175,7 +206,7 @@ renderWorld PROC NEAR
 renderWorld ENDP
 
 ; Reads keyboard buffer and acts (returns non-zero if loop should end, 0 otherwise)
-handleInput PROC NEAR
+handleInput PROC NEAR ; {{{1
 	push	es
 
 	mov	ax, seg __keysActive
@@ -191,31 +222,25 @@ handleInput PROC NEAR
 	cmp	al, 0
 	jz @F	; jump next
 	; call some function to handle this key
-	mov	ax, SCREENW
-	sub [hardOffset], ax
-	sub [hardOffset], ax
+  mov [hardDirection], DIRECTION_UP
 @@:
 	mov	al, es:[__keyboardState][SCANCODE_DOWN]	; test DOWN key
 	cmp	al, 0
 	jz @F	; jump next
 	; call some function to handle this key
-	mov	ax, SCREENW
-	add [hardOffset], ax
-	add [hardOffset], ax
+  mov [hardDirection], DIRECTION_DOWN
 @@:
 	mov	al, es:[__keyboardState][SCANCODE_LEFT]	; test LEFT key
 	cmp	al, 0
 	jz @F	; jump next
 	; call some function to handle this key
-	dec [hardOffset]
-	dec [hardOffset]
+  mov [hardDirection], DIRECTION_LEFT
 @@:
 	mov	al, es:[__keyboardState][SCANCODE_RIGHT]	; test RIGHT key
 	cmp	al, 0
 	jz @F	; jump next
 	; call some function to handle this key
-	inc [hardOffset]
-	inc [hardOffset]
+  mov [hardDirection], DIRECTION_RIGHT
 @@:
 	
 	; finally, let's put the ESC key status as return value in AX
@@ -228,7 +253,7 @@ handleInput ENDP
 
 ; Draw a rectangle at the center of the screen buffer.
 ; W, H passed on stack.
-drawRect PROC NEAR
+drawRect PROC NEAR ; {{{1
 	push	bp
 	mov	bp, sp
 	
@@ -302,6 +327,8 @@ drawRect PROC NEAR
 	pop	bp
 	ret	4
 drawRect ENDP
+
+; }}}1
 
 ; _------------------------------- END OF CODE ---------------------------------
 END main
