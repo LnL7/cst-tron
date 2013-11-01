@@ -8,9 +8,9 @@
 
 ; --- INCLUDES -----------------------------------------------------------------
 
-include VIDEO.INC
-include RAND.INC
-include KEYB.INC
+include keyb.inc
+include random.inc
+include video.inc
 
 ; --- MACROS AND CONSTANTS -----------------------------------------------------
 
@@ -43,7 +43,7 @@ main PROC NEAR ; {{{1
 	mov	ds, ax		; set DS to data segment
 
 	; Initialize random number generator
-	call	randInit
+	call Random_init
 	
 	; Install our own keyboard handler
 	call	installKeyboardHandler
@@ -195,7 +195,12 @@ renderWorld PROC NEAR ; {{{1
 	; draw a random rectangle
   mov  ax, RECT_SIZE
 	push ax
+
+  call Random_dw
+  or   ax, 01h
+  and  ax, 0fh
 	push ax
+
 	call drawRect
 
 	; draw the screen buffer
