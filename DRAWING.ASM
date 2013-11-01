@@ -60,7 +60,7 @@ main PROC NEAR ; {{{1
 	; set mode 13h
 	mov		ax, 13h
 	push	ax
-	call	setVideoMode
+	call	Video_setMode
 	mov		[oldVideoMode], al
 	
 @main_loop:	
@@ -78,7 +78,7 @@ main PROC NEAR ; {{{1
 
 	xor		ah, ah
 	push	ax
-	call	setVideoMode
+	call	Video_setMode
 	
 	; Exit to DOS
 	mov		ax, 4c00h	; exit to DOS function, return code 00h
@@ -93,10 +93,10 @@ fadeToBlack PROC NEAR ; {{{1
 	push	ax
 	mov	ax, offset palette
 	push	ax
-	call	paletteInitFade
+	call	Palette_initFade
 @@:
-	waitVBlank
-	call	paletteNextFade
+	call Video_wait
+	call	Palette_nextFade
 	test	ax, ax
 	jnz	@B
 
@@ -146,7 +146,7 @@ updateScreen PROC NEAR ; {{{1
 	
 	cld
 	mov		cx, 64000 / 2
-	waitVBlank	; wait for a VB (modifies AX and DX)
+	call Video_wait	; wait for a VB (modifies AX and DX)
 	rep		movsw	; blit to screen	
 	
 	pop		es
