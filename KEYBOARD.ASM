@@ -13,30 +13,36 @@ Keyboard_ActiveKeys db ?          ; number of actively pressed keys
 
 .CODE ; {{{1
 
-Keyboard_installHandler proc far ; {{{1
-  ; Installs the custom keyboard handler
+Keyboard_clearState proc near ; {{{2
+  ; Clear state buffer and the two state bytes
   push bp
   mov  bp, sp
 
-  push bx
   push cx
-  push dx
   push di
-  push ds
-  push es
 
-  mov ax, seg __originalHandler
-  mov ds, ax
-  mov es, ax
-
-  ; Clear state buffer and the two state bytes
   cld
   mov cx, (128 / 2) + 1
   mov di, offset Keyboard_State
   xor ax, ax
   rep stosw
 
+  pop di
+  pop cx
+
+  mov sp, bp
+  pop bp
+  ret
+Keyboard_clearState endp
+
+Keyboard_storeHandler proc near ; {{{2
   ; Store current handler
+  push bp
+  mov  bp, sp
+
+  push bx
+  push es
+
   mov ax, 3509h ; get current interrupt handler 09h
   int 21h       ; in ES:BX
 
@@ -44,20 +50,62 @@ Keyboard_installHandler proc far ; {{{1
   mov [__originalHandler][0], ax ; store SEG
   mov [__originalHandler][2], bx ; store OFF
 
+  pop es
+  pop bx
+
+  mov sp, bp
+  pop bp
+  ret
+Keyboard_storeHandler endp
+
+Keyboard_setHandler proc near ; (SEGMENT, OFFSET) {{{2
   ; Set new handler
-  mov ax, seg Keyboard_handler    ; new SEG
-  mov dx, offset Keyboard_handler ; new OFF
+  push bp
+  mov  bp, sp
+
+  push dx
+  push ds
+
+  mov ax, [bp + 4][2] ; SEGMENT
+  mov dx, [bp + 4][0] ; OFFSET
   mov ds, ax
 
   mov ax, 2509h ; set custom interrupt handler 09h
   int 21h       ; uses DS:DX
 
+  pop ds
+  pop dx
+
+  mov sp, bp
+  pop bp
+  ret 4
+Keyboard_setHandler endp
+
+; }}}2
+
+Keyboard_installHandler proc far ; {{{1
+  ; Installs the custom keyboard handler
+  push bp
+  mov  bp, sp
+
+  push ds
+  push es
+
+  mov ax, seg __originalHandler
+  mov ds, ax
+  mov es, ax
+
+  call Keyboard_clearState
+  call Keyboard_storeHandler
+
+  mov  ax, seg Keyboard_handler    ; new SEGMENT
+  push ax
+  mov  ax, offset Keyboard_handler ; new OFFSET
+  push ax
+  call Keyboard_setHandler ; (seg Keyboard_handler, offset Keyboard_handler)
+
   pop es
   pop ds
-  pop di
-  pop dx
-  pop cx
-  pop bx
 
   mov sp, bp
   pop bp
@@ -69,21 +117,18 @@ Keyboard_uninstallHandler proc far ; {{{1
   push bp
   mov  bp, sp
 
-  push dx
   push ds
 
   mov ax, seg __originalHandler
   mov ds, ax
 
-  mov ax, [__originalHandler][0] ; retrieve SEG
-  mov dx, [__originalHandler][2] ; retrieve OFF
-  mov ds, ax
-
-  mov ax, 2509h ; set original interrupt handler 09h
-  int 21h       ; uses DS:DX
+  mov  ax, [__originalHandler][0] ; retrieve SEG
+  push ax
+  mov  ax, [__originalHandler][2] ; retrieve OFFSET
+  push ax
+  call Keyboard_setHandler ; (seg __originalHandler, offset __originalHandler)
 
   pop ds
-  pop dx
 
   mov sp, bp
   pop bp
