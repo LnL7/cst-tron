@@ -16,9 +16,11 @@ FADESTEPSB equ 5  ; 5 bits
 __fader  dw 2 * 768 dup(?)
 __stepsC dw ?
 
-.CODE ; {{{1
+; }}}1
 
-Video_setMode proc far ; (REQUESTED_MODE) {{{1
+.CODE
+
+Video_SetMode proc far ; (REQUESTED_MODE) {{{1
   ; Set the video mode and returns the previous mode in AL.
   push bp     ; save dynamic link
   mov  bp, sp ; update bp
@@ -40,9 +42,9 @@ Video_setMode proc far ; (REQUESTED_MODE) {{{1
   mov  sp, bp
   pop  bp
   retf 2
-Video_setMode endp
+Video_SetMode endp
 
-Video_wait proc far ; {{{1
+Video_Wait proc far ; {{{1
   ; Waits for the next start of a vertical blank (VB) period by the video card
   push bp
   mov  bp, sp
@@ -65,52 +67,11 @@ Video_wait proc far ; {{{1
   mov sp, bp
   pop bp
   ret
-Video_wait endp
+Video_Wait endp
 
-Palette_set proc far ; (DATA_SEGMENT, OFFSET) {{{1
-  ; Immediately set a new VGA palette
-  ; Arguments are SEGMENT and OFFSET of destination palette (points to 768 bytes)
-  push bp
-  mov  bp, sp
+; }}}1
 
-  push cx
-  push dx
-  push si
-  push ds
-
-  mov ax, [bp + 6][2] ; get data segment argument
-  mov ds, ax          ; and set it as DS
-
-  mov ax, [bp + 6][0] ; get the offset argument
-  mov si, ax          ; and set it as source index
-
-  cli ; disable interrupts
-
-  mov dx, PORT_VGA_DAC_WRITE
-  xor ax, ax
-  out dx, al                ; start at color 0
-  mov dx, PORT_VGA_DAC_DATA
-  mov cx, 768               ; we need to write 768 channel color bytes
-
-@@:
-  lodsb      ; load next channel color byte into al
-  out dx, al ; write the byte in al to DAC DATA port
-  dec cx     ; decrement loop counter
-  jnz @B     ; loop if more todo (@B is the first @@ label before this point)
-
-  sti ; enable interrupts
-
-  pop ds
-  pop si
-  pop dx
-  pop cx
-
-  mov  sp, bp
-  pop  bp
-  retf 4
-Palette_set endp
-
-Palette_initFade proc far ; {{{1
+Palette_Init proc far ; {{{1
   ; Call this function to start a palette fade,
   ; starting with the currently active palette
   ; (uses __fader and paletteSteps)
@@ -214,9 +175,9 @@ Palette_initFade proc far ; {{{1
   mov  sp, bp
   pop  bp
   retf 4
-Palette_initFade endp
+Palette_Init endp
 
-Palette_nextFade proc far ; {{{1
+Palette_Next proc far ; {{{1
   ; Perform the next palette fading step
   ; More steps are needed when return value (AX) is non-zero
   push bp
@@ -299,6 +260,51 @@ Palette_nextFade proc far ; {{{1
   mov  sp, bp
   pop  bp
   retf
-Palette_nextFade endp
+Palette_Next endp
+
+Palette_set proc far ; (DATA_SEGMENT, OFFSET) {{{1
+  ; Immediately set a new VGA palette
+  ; Arguments are SEGMENT and OFFSET of destination palette (points to 768 bytes)
+  push bp
+  mov  bp, sp
+
+  push cx
+  push dx
+  push si
+  push ds
+
+  mov ax, [bp + 6][2] ; get data segment argument
+  mov ds, ax          ; and set it as DS
+
+  mov ax, [bp + 6][0] ; get the offset argument
+  mov si, ax          ; and set it as source index
+
+  cli ; disable interrupts
+
+  mov dx, PORT_VGA_DAC_WRITE
+  xor ax, ax
+  out dx, al                ; start at color 0
+  mov dx, PORT_VGA_DAC_DATA
+  mov cx, 768               ; we need to write 768 channel color bytes
+
+@@:
+  lodsb      ; load next channel color byte into al
+  out dx, al ; write the byte in al to DAC DATA port
+  dec cx     ; decrement loop counter
+  jnz @B     ; loop if more todo (@B is the first @@ label before this point)
+
+  sti ; enable interrupts
+
+  pop ds
+  pop si
+  pop dx
+  pop cx
+
+  mov  sp, bp
+  pop  bp
+  retf 4
+Palette_set endp
+
+; }}}1
 
 END
