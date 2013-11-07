@@ -19,8 +19,9 @@ DIRECTION_UP    equ 1000b
 
 oldVideoMode  db ?
 
-hardOffset    dw 1024 dup(0) ; rectangle position offset
-hardDirection dw 0000b       ; rectangle direction
+lastOffsetIndex dw 2
+hardOffset      dw 1024 dup(0) ; rectangle position offset
+hardDirection   dw 0000b       ; rectangle direction
 
 .FARDATA? ; {{{1
 
@@ -46,6 +47,9 @@ main proc near ; {{{1
   push ax
   call Video_SetMode
   mov  [oldVideoMode], al
+
+  mov [hardOffset], SCREEN_WIDTH
+  inc [hardOffset]
 
 @@:
   call World_update ; updates the world
@@ -197,13 +201,10 @@ World_render proc near ; {{{1
   ; Draw a random rectangle
   mov  ax, RECT_SIZE
   push ax
-
-  call Random_Word
-  or   ax, 01h
-  and  ax, 0fh
   push ax
 
   call Rectangle_render
+  call Tail_render
 
   ; Draw the screen buffer
   call Screen_update
@@ -234,8 +235,10 @@ Input_update proc near ; {{{1
   mov al, es:[Keyboard_State][SCANCODE_UP] ; test UP key
   cmp al, 0
   jz  @F ; jump next
-
   ; Call some function to handle this key
+  mov  ax, DIRECTION_UP
+  push ax
+  call Tail_increase ; (RIGHT)
   mov [hardDirection], DIRECTION_UP
 @@:
 
@@ -243,6 +246,9 @@ Input_update proc near ; {{{1
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
+  mov  ax, DIRECTION_DOWN
+  push ax
+  call Tail_increase ; (RIGHT)
   mov [hardDirection], DIRECTION_DOWN
 @@:
 
@@ -250,6 +256,9 @@ Input_update proc near ; {{{1
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
+  mov  ax, DIRECTION_LEFT
+  push ax
+  call Tail_increase ; (RIGHT)
   mov [hardDirection], DIRECTION_LEFT
 @@:
 
@@ -257,6 +266,9 @@ Input_update proc near ; {{{1
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
+  mov  ax, DIRECTION_RIGHT
+  push ax
+  call Tail_increase ; (RIGHT)
   mov [hardDirection], DIRECTION_RIGHT
 @@:
 
@@ -273,16 +285,120 @@ Input_update endp
 
 ; }}}1
 
+Tail_increase proc near ; (DIRECTION) {{{1
+  push bp
+  mov  bp, sp
+
+  push bx
+
+  mov ax, [bp + 4][0] ; DIRECTION
+  mov bx, ax
+  mov ax, [hardDirection]
+  cmp ax, bx
+  je @F
+
+  mov bx, offset hardOffset
+  add bx, lastOffsetIndex
+  mov ax, [hardOffset]
+  mov [bx], ax
+  add lastOffsetIndex, 2
+@@:
+
+  pop bx
+
+  mov sp, bp
+  pop bp
+  ret 2
+Tail_increase endp
+
+Tail_render proc near ; {{{1
+  push bp
+  mov  bp, sp
+
+  mov bx, offset hardOffset
+
+@loop:
+  add bx, 2
+
+  mov ax, [bx]
+  cmp ax, 0
+  jz @done
+
+  push bx
+  call Point_render
+  jmp @loop
+@done:
+
+  mov sp, bp
+  pop bp
+  ret
+Tail_render endp
+
+Point_render proc near ; (OFFSET) {{{1
+  push bp
+  mov  bp, sp
+
+  push bx
+  push es
+
+  mov ax, seg screenBuffer
+  mov es, ax
+
+  mov ax, [bp + 4][0] ; OFFSET
+  mov bx, ax
+  mov di, offset screenBuffer
+  add di, [bx]
+
+  mov al, 15
+  mov es:[di], al ; set pixel
+
+  pop es
+  pop bx
+
+  mov sp, bp
+  pop bp
+  ret 2
+Point_render endp
+
+Line_renderHorizontal proc near ; (OFFSET, WIDTH) {{{1
+  push bp
+  mov  bp, sp
+
+  push cx
+  push di
+  push es
+
+  mov ax, seg screenBuffer
+  mov es, ax
+
+  mov ax, [bp + 4][2] ; OFFSET
+  mov bx, ax
+  mov ax, offset screenBuffer
+  add ax, [bx]
+
+  ; Draw upper horizontal line
+  mov di, ax
+  mov cx, [bp + 4][0] ; WIDTH
+  mov al, 15          ; color
+  cld
+  rep stosb           ; draw
+
+  pop es
+  pop di
+  pop cx
+ 
+  mov sp, bp
+  pop bp
+  ret 4
+Line_renderHorizontal endp
+
 Rectangle_render proc near ; (WIDTH, HEIGHT) {{{1
   ; Draw a rectangle at the center of the screen buffer.
   ; W, H passed on stack.
   push  bp
   mov bp, sp
 
-  push  ax
-  push  bx
   push  cx
-  push  dx
   push  di
   push  es
 
@@ -290,24 +406,7 @@ Rectangle_render proc near ; (WIDTH, HEIGHT) {{{1
   mov ax, seg screenBuffer
   mov es, ax
 
-  ; Calculate posX
-  mov ax, [bp + 4][2]
-  neg ax
-  add ax, SCREEN_WIDTH
-  shr ax, 1
-  mov bx, ax ; posX is in BX now
-
-  ; Calculate posY
-  mov ax, [bp + 4][0]
-  neg ax
-  add ax, SCREEN_HEIGHT
-  shr ax, 1 ; and posY is in AX
-
-  ; Calculate offset of top-left corner
-  mov dx, SCREEN_WIDTH
-  mul dx     ; AX = posY * SCREEN_WIDTH
-  add ax, bx ; AX now contains start offset of rectangle
-  add ax, offset screenBuffer
+  mov ax, offset screenBuffer
   add ax, [hardOffset]
 
   ; Draw upper horizontal line
@@ -343,10 +442,7 @@ Rectangle_render proc near ; (WIDTH, HEIGHT) {{{1
   ; We are done
   pop es
   pop di
-  pop dx
   pop cx
-  pop bx
-  pop ax
 
   mov sp, bp
   pop bp
