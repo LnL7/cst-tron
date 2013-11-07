@@ -19,50 +19,54 @@ DIRECTION_UP    equ 1000b
 
 oldVideoMode  db ?
 
-hardOffset    dw 0     ; rectangle position offset
-hardDirection dw 0000b ; rectangle direction
+hardOffset    dw 1024 dup(0) ; rectangle position offset
+hardDirection dw 0000b       ; rectangle direction
 
 .FARDATA? ; {{{1
 
 palette      db 768 dup(0)
 screenBuffer db 64000 dup(?) ; the 64000 bytes for the screen
 
-.CODE ; {{{1
+; }}}1
+
+.CODE
 
 main proc near ; {{{1
   mov ax, @data ; get data segment address
   mov ds, ax    ; set DS to data segment
 
-  call Random_init             ; initialize random number generator
-  call Keyboard_installHandler ; install our own keyboard handler
-  call fadeToBlack             ; fade to black
-  call clearScreenBuffer       ; clear video buffer
-  call updateScreen            ; draw the screen buffer
+  call Random_Init        ; initialize random number generator
+  call Keyboard_Install   ; install our own keyboard handler
+  call Screen_fadeBlack   ; fade to black
+  call Screen_clearBuffer ; clear video buffer
+  call Screen_update      ; draw the screen buffer
 
   ; Set mode 13h
   mov  ax, 13h
   push ax
-  call Video_setMode
+  call Video_SetMode
   mov  [oldVideoMode], al
 
 @@:
-  call updateWorld ; updates the world
-  call renderWorld ; draws the world
-  call handleInput ; handle user input
+  call World_update ; updates the world
+  call World_render ; draws the world
+  call Input_update ; handle user input
   cmp  al, 0
   jz   @B
 
   ; Restore original keyboard handler
-  call Keyboard_uninstallHandler
+  call Keyboard_Uninstall
 
   xor  ah, ah
   push ax
-  call Video_setMode
+  call Video_SetMode
 
   call Process_exit
 main endp
 
-fadeToBlack proc near ; {{{1
+; }}}1
+
+Screen_fadeBlack proc near ; {{{1
   ; Fades the active colors to black
   push bp
   mov  bp, sp
@@ -71,20 +75,20 @@ fadeToBlack proc near ; {{{1
   push ax
   mov  ax, offset palette
   push ax
-  call Palette_initFade
+  call Palette_Init
 
 @@:
-  call Video_wait
-  call Palette_nextFade
+  call Video_Wait
+  call Palette_Next
   test ax, ax
   jnz  @B
 
   mov sp, bp
   pop bp
   ret 0
-fadeToBlack endp
+Screen_fadeBlack endp
 
-clearScreenBuffer proc near ; {{{1
+Screen_clearBuffer proc near ; {{{1
   ; Clears the screen buffer to color 0
   push bp
   mov  bp, sp
@@ -108,9 +112,9 @@ clearScreenBuffer proc near ; {{{1
   mov sp, bp
   pop bp
   ret
-clearScreenBuffer endp
+Screen_clearBuffer endp
 
-updateScreen proc near ; {{{1
+Screen_update proc near ; {{{1
   ; Updates the screen (copies contents from screenBuffer to screen)
   push bp
   mov  bp, sp
@@ -132,7 +136,7 @@ updateScreen proc near ; {{{1
 
   cld
   mov  cx, 64000 / 2
-  call Video_wait ; wait for a VB (modifies AX and DX)
+  call Video_Wait ; wait for a VB (modifies AX and DX)
   rep  movsw      ; blit to screen
 
   pop es
@@ -147,9 +151,11 @@ updateScreen proc near ; {{{1
   mov sp, bp
   pop bp
   ret
-updateScreen endp
+Screen_update endp
 
-updateWorld proc near ; {{{1
+; }}}1
+
+World_update proc near ; {{{1
   push bp
   mov  bp, sp
 
@@ -180,34 +186,36 @@ updateWorld proc near ; {{{1
   mov sp, bp
   pop bp
   ret
-updateWorld endp
+World_update endp
 
-renderWorld proc near ; {{{1
+World_render proc near ; {{{1
   push bp
   mov  bp, sp
 
-  call clearScreenBuffer
+  call Screen_clearBuffer
 
   ; Draw a random rectangle
   mov  ax, RECT_SIZE
   push ax
 
-  call Random_dw
+  call Random_Word
   or   ax, 01h
   and  ax, 0fh
   push ax
 
-  call drawRect
+  call Rectangle_render
 
   ; Draw the screen buffer
-  call updateScreen
+  call Screen_update
 
   mov sp, bp
   pop bp
   ret
-renderWorld endp
+World_render endp
 
-handleInput proc near ; {{{1
+; }}}1
+
+Input_update proc near ; {{{1
   ; Reads keyboard buffer and acts (returns non-zero if loop should end, 0 otherwise)
   push bp
   mov  bp, sp
@@ -261,9 +269,11 @@ handleInput proc near ; {{{1
   mov sp, bp
   pop bp
   ret
-handleInput endp
+Input_update endp
 
-drawRect proc near ; (WIDTH, HEIGHT) {{{1
+; }}}1
+
+Rectangle_render proc near ; (WIDTH, HEIGHT) {{{1
   ; Draw a rectangle at the center of the screen buffer.
   ; W, H passed on stack.
   push  bp
@@ -341,7 +351,9 @@ drawRect proc near ; (WIDTH, HEIGHT) {{{1
   mov sp, bp
   pop bp
   ret 4
-drawRect endp
+Rectangle_render endp
+
+; }}}1
 
 Process_exit proc near ; {{{1
   ; Exit to DOS
