@@ -19,9 +19,11 @@ DIRECTION_UP    equ 1000b
 
 oldVideoMode  db ?
 
-lastOffsetIndex dw 2
-hardOffset      dw 1024 dup(0) ; rectangle position offset
-hardDirection   dw 0000b       ; rectangle direction
+player1 dw 3 dup(0)
+
+player1_hardDirection   dw 0000b       ; rectangle direction
+player1_position      dw 8192 dup(0) ; rectangle position offset
+player1_lastOffsetIndex dw 2
 
 .FARDATA? ; {{{1
 
@@ -32,6 +34,23 @@ screenBuffer db 64000 dup(?) ; the 64000 bytes for the screen
 
 .CODE
 
+send macro object, procedure ; {{{1
+  ; Call the given procedure with the object as the last argument
+  ; [bp + 4][0] should be the object pointer
+  mov  ax, offset object
+  push ax
+  call procedure
+endm
+
+arg macro value ; {{{1
+  ; Pushes the given value on the stack
+  ; used for procedure arguments
+  mov ax, value
+  push ax
+endm
+
+; }}}1
+
 main proc near ; {{{1
   mov ax, @data ; get data segment address
   mov ds, ax    ; set DS to data segment
@@ -41,6 +60,7 @@ main proc near ; {{{1
   call Screen_fadeBlack   ; fade to black
   call Screen_clearBuffer ; clear video buffer
   call Screen_update      ; draw the screen buffer
+  call Player_new1        ; create player1
 
   ; Set mode 13h
   mov  ax, 13h
@@ -48,13 +68,12 @@ main proc near ; {{{1
   call Video_SetMode
   mov  [oldVideoMode], al
 
-  mov [hardOffset], SCREEN_WIDTH
-  inc [hardOffset]
-
 @@:
   call World_update ; updates the world
   call World_render ; draws the world
+  call Tail_increase
   call Input_update ; handle user input
+
   cmp  al, 0
   jz   @B
 
@@ -163,28 +182,29 @@ World_update proc near ; {{{1
   push bp
   mov  bp, sp
 
-  mov ax, [hardDirection]
+  send player1, Player_getDirection
 
   cmp ax, DIRECTION_LEFT
   jnz @F
-  dec [hardOffset]
+
+  dec [player1_position]
 @@:
 
   cmp ax, DIRECTION_RIGHT
   jnz @F
-  inc [hardOffset]
+  inc [player1_position]
 @@:
 
   cmp ax, DIRECTION_UP
   jnz @F
   mov ax, SCREEN_WIDTH
-  sub [hardOffset], ax
+  sub [player1_position], ax
 @@:
 
   cmp ax, DIRECTION_DOWN
   jnz @F
   mov ax, SCREEN_WIDTH
-  add [hardOffset], ax
+  add [player1_position], ax
 @@:
 
   mov sp, bp
@@ -236,40 +256,28 @@ Input_update proc near ; {{{1
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
-  mov  ax, DIRECTION_UP
-  push ax
-  call Tail_increase ; (RIGHT)
-  mov [hardDirection], DIRECTION_UP
+  mov [player1_hardDirection], DIRECTION_UP
 @@:
 
   mov al, es:[Keyboard_State][SCANCODE_DOWN] ; test DOWN key
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
-  mov  ax, DIRECTION_DOWN
-  push ax
-  call Tail_increase ; (RIGHT)
-  mov [hardDirection], DIRECTION_DOWN
+  mov [player1_hardDirection], DIRECTION_DOWN
 @@:
 
   mov al, es:[Keyboard_State][SCANCODE_LEFT]  ; test LEFT key
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
-  mov  ax, DIRECTION_LEFT
-  push ax
-  call Tail_increase ; (RIGHT)
-  mov [hardDirection], DIRECTION_LEFT
+  mov [player1_hardDirection], DIRECTION_LEFT
 @@:
 
   mov al, es:[Keyboard_State][SCANCODE_RIGHT] ; test RIGHT key
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
-  mov  ax, DIRECTION_RIGHT
-  push ax
-  call Tail_increase ; (RIGHT)
-  mov [hardDirection], DIRECTION_RIGHT
+  mov [player1_hardDirection], DIRECTION_RIGHT
 @@:
 
   ; Finally, let's put the ESC key status as return value in AX
@@ -285,37 +293,50 @@ Input_update endp
 
 ; }}}1
 
-Tail_increase proc near ; (DIRECTION) {{{1
+Tail_increase proc near ; {{{1
   push bp
   mov  bp, sp
 
   push bx
+  push dx
+  push di
 
-  mov ax, [bp + 4][0] ; DIRECTION
+  send player1, Player_position ; bx, di = offset POSITION
   mov bx, ax
-  mov ax, [hardDirection]
-  cmp ax, bx
-  je @F
+  mov di, ax
 
-  mov bx, offset hardOffset
-  add bx, lastOffsetIndex
-  mov ax, [hardOffset]
+  send player1, Player_getLastIndex ; bx += lastIndex
+  add bx, ax
+
+  mov ax, [di] ; POSITION[lastIndex] = POSITION[0]
   mov [bx], ax
-  add lastOffsetIndex, 2
-@@:
 
+  add player1_lastOffsetIndex, 2 ; lastIndex++
+
+  send player1, Player_getLastIndex
+  mov bx, 8192
+  xor dx, dx
+  div bx
+
+  send player1, Player_lastIndex
+  mov bx, ax
+  mov [bx], dx
+
+  pop di
+  pop dx
   pop bx
 
   mov sp, bp
   pop bp
-  ret 2
+  ret
 Tail_increase endp
 
 Tail_render proc near ; {{{1
   push bp
   mov  bp, sp
 
-  mov bx, offset hardOffset
+  send player1, Player_position
+  mov bx, ax
 
 @loop:
   add bx, 2
@@ -333,6 +354,100 @@ Tail_render proc near ; {{{1
   pop bp
   ret
 Tail_render endp
+
+; }}}1
+
+Player_new1 proc near ; {{{1
+  ; Initialize the player1 variable
+  push bp
+  mov  bp, sp
+
+  mov ax, offset player1_hardDirection
+  mov [player1][0], ax
+
+  mov ax, offset player1_position
+  mov [player1][2], ax
+
+  mov ax, offset player1_lastOffsetIndex
+  mov [player1][4], ax
+
+  mov [player1_position], SCREEN_WIDTH
+  inc [player1_position]
+
+  mov sp, bp
+  pop bp
+  ret
+Player_new1 endp
+
+Player_getDirection proc near ; (offset PLAYER) {{{1
+  push bp
+  mov  bp, sp
+
+  mov ax, [bp + 4][0] ; PLAYER
+  mov bx, ax
+  mov ax, [bx][0] ; offset DIRECTION
+  mov bx, ax
+  mov ax, [bx] ; DIRECTION
+
+  mov sp, bp
+  pop bp
+  ret 2
+Player_getDirection endp
+
+Player_position proc near ; (offset PLAYER) {{{1
+  push bp
+  mov  bp, sp
+
+  push bx
+
+  mov ax, [bp + 4][0] ; PLAYER
+  mov bx, ax
+  mov ax, [bx][2] ; offset POSITION
+
+  pop bx
+
+  mov sp, bp
+  pop bp
+  ret 2
+Player_position endp
+
+Player_getLastIndex proc near ; (offset PLAYER) {{{1
+  push bp
+  mov  bp, sp
+
+  push bx
+
+  mov ax, [bp + 4][0] ; offset PLAYER
+  mov bx, ax
+  mov ax, [bx][4] ; offset INDEX
+  mov bx, ax
+  mov ax, [bx] ; INDEX
+
+  pop bx
+
+  mov sp, bp
+  pop bp
+  ret 2
+Player_getLastIndex endp
+
+Player_lastIndex proc near ; (offset PLAYER) {{{1
+  push bp
+  mov  bp, sp
+
+  push bx
+
+  mov ax, [bp + 4][0] ; offset PLAYER
+  mov bx, ax
+  mov ax, [bx][4] ; offset INDEX
+
+  pop bx
+
+  mov sp, bp
+  pop bp
+  ret
+Player_lastIndex endp
+
+; }}}1
 
 Point_render proc near ; (OFFSET) {{{1
   push bp
@@ -407,7 +522,7 @@ Rectangle_render proc near ; (WIDTH, HEIGHT) {{{1
   mov es, ax
 
   mov ax, offset screenBuffer
-  add ax, [hardOffset]
+  add ax, [player1_position]
 
   ; Draw upper horizontal line
   mov di, ax
