@@ -7,13 +7,15 @@ include scancode.inc
 include video.inc
 
 ; Other constants
-SCREEN_WIDTH    equ 320
-SCREEN_HEIGHT   equ 200
-RECT_SIZE       equ 5
+COLOR_WHITE     equ 15
+DIRECTION_DOWN  equ 0100b
 DIRECTION_LEFT  equ 0001b
 DIRECTION_RIGHT equ 0010b
-DIRECTION_DOWN  equ 0100b
 DIRECTION_UP    equ 1000b
+RECT_SIZE       equ 5
+SCREEN_HEIGHT   equ 200
+SCREEN_WIDTH    equ 320
+TAIL_SIZE       equ 1024
 
 .DATA ; {{{1
 
@@ -22,7 +24,7 @@ oldVideoMode  db ?
 player1 dw 3 dup(0)
 
 player1_hardDirection   dw 0000b       ; rectangle direction
-player1_position      dw 8192 dup(0) ; rectangle position offset
+player1_position        dw TAIL_SIZE dup(0) ; rectangle position offset
 player1_lastOffsetIndex dw 2
 
 .FARDATA? ; {{{1
@@ -182,30 +184,43 @@ World_update proc near ; {{{1
   push bp
   mov  bp, sp
 
+  push bx
+
   send player1, Player_getDirection
 
   cmp ax, DIRECTION_LEFT
   jnz @F
 
-  dec [player1_position]
+  send player1, Player_position
+  mov bx, ax
+  dec word ptr [bx] ; player1.position--
 @@:
 
   cmp ax, DIRECTION_RIGHT
   jnz @F
-  inc [player1_position]
+
+  send player1, Player_position
+  mov bx, ax
+  inc word ptr [bx] ; player1.position++
 @@:
 
   cmp ax, DIRECTION_UP
   jnz @F
+  send player1, Player_position
+  mov bx, ax
   mov ax, SCREEN_WIDTH
-  sub [player1_position], ax
+  sub word ptr [bx], ax ; player1.position -= WIDTH
 @@:
 
   cmp ax, DIRECTION_DOWN
   jnz @F
+  send player1, Player_position
+  mov bx, ax
   mov ax, SCREEN_WIDTH
-  add [player1_position], ax
+  add word ptr [bx], ax ; player1.position += WIDTH
 @@:
+
+  pop bx
 
   mov sp, bp
   pop bp
@@ -256,28 +271,36 @@ Input_update proc near ; {{{1
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
-  mov [player1_hardDirection], DIRECTION_UP
+  send player1, Player_direction
+  mov bx, ax
+  mov word ptr [bx], DIRECTION_UP ; player1.direction = UP
 @@:
 
   mov al, es:[Keyboard_State][SCANCODE_DOWN] ; test DOWN key
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
-  mov [player1_hardDirection], DIRECTION_DOWN
+  send player1, Player_direction
+  mov bx, ax
+  mov word ptr [bx], DIRECTION_DOWN ; player1.direction = DOWN
 @@:
 
   mov al, es:[Keyboard_State][SCANCODE_LEFT]  ; test LEFT key
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
-  mov [player1_hardDirection], DIRECTION_LEFT
+  send player1, Player_direction
+  mov bx, ax
+  mov [player1_hardDirection], DIRECTION_LEFT ; player1.direction = LEFT
 @@:
 
   mov al, es:[Keyboard_State][SCANCODE_RIGHT] ; test RIGHT key
   cmp al, 0
   jz  @F ; jump next
   ; Call some function to handle this key
-  mov [player1_hardDirection], DIRECTION_RIGHT
+  send player1, Player_direction
+  mov bx, ax
+  mov word ptr [bx], DIRECTION_RIGHT ; player1.direction = RIGHT
 @@:
 
   ; Finally, let's put the ESC key status as return value in AX
@@ -298,6 +321,7 @@ Tail_increase proc near ; {{{1
   mov  bp, sp
 
   push bx
+  push cx
   push dx
   push di
 
@@ -311,19 +335,19 @@ Tail_increase proc near ; {{{1
   mov ax, [di] ; POSITION[lastIndex] = POSITION[0]
   mov [bx], ax
 
-  add player1_lastOffsetIndex, 2 ; lastIndex++
-
-  send player1, Player_getLastIndex
-  mov bx, 8192
-  xor dx, dx
-  div bx
-
   send player1, Player_lastIndex
   mov bx, ax
-  mov [bx], dx
+  add word ptr [bx], 2 ; lastIndex++
+
+  mov ax, [bx] ; ax = lastIndex
+  mov cx, TAIL_SIZE
+  xor dx, dx
+  div cx
+  mov word ptr [bx], dx  ; lastIndex = mod(lastIndex, TAIL_SIZE) ; TODO: no word ptr?
 
   pop di
   pop dx
+  pop cx
   pop bx
 
   mov sp, bp
@@ -362,32 +386,62 @@ Player_new1 proc near ; {{{1
   push bp
   mov  bp, sp
 
+  push bx
+
+  mov bx, offset player1
+
   mov ax, offset player1_hardDirection
-  mov [player1][0], ax
+  mov [bx][0], ax
 
   mov ax, offset player1_position
-  mov [player1][2], ax
+  mov [bx][2], ax
 
   mov ax, offset player1_lastOffsetIndex
-  mov [player1][4], ax
+  mov [bx][4], ax
+
+  mov ax, [bx][2] ; offset POSITION
+  mov bx, ax
 
   mov [player1_position], SCREEN_WIDTH
   inc [player1_position]
+
+  pop bx
 
   mov sp, bp
   pop bp
   ret
 Player_new1 endp
 
+Player_direction proc near ; (offset PLAYER) {{{1
+  push bp
+  mov  bp, sp
+
+  push bx
+
+  mov ax, [bp + 4][0] ; PLAYER
+  mov bx, ax
+  mov ax, [bx][0] ; offset DIRECTION
+
+  pop bx
+
+  mov sp, bp
+  pop bp
+  ret 2
+Player_direction endp
+
 Player_getDirection proc near ; (offset PLAYER) {{{1
   push bp
   mov  bp, sp
+
+  push bx
 
   mov ax, [bp + 4][0] ; PLAYER
   mov bx, ax
   mov ax, [bx][0] ; offset DIRECTION
   mov bx, ax
   mov ax, [bx] ; DIRECTION
+
+  pop bx
 
   mov sp, bp
   pop bp
@@ -400,7 +454,7 @@ Player_position proc near ; (offset PLAYER) {{{1
 
   push bx
 
-  mov ax, [bp + 4][0] ; PLAYER
+  mov ax, [bp + 4][0] ; offset PLAYER
   mov bx, ax
   mov ax, [bx][2] ; offset POSITION
 
@@ -410,6 +464,25 @@ Player_position proc near ; (offset PLAYER) {{{1
   pop bp
   ret 2
 Player_position endp
+
+Player_getPosition proc near ; (offset PLAYER) {{{1
+  push bp
+  mov  bp, sp
+
+  push bx
+
+  mov ax, [bp + 4][0] ; offset PLAYER
+  mov bx, ax
+  mov ax, [bx][2] ; offset POSITION
+  mov bx, ax
+  mov ax, [bx] ; POSITION[0] (current)
+
+  pop bx
+
+  mov sp, bp
+  pop bp
+  ret
+Player_getPosition endp
 
 Player_getLastIndex proc near ; (offset PLAYER) {{{1
   push bp
@@ -464,7 +537,7 @@ Point_render proc near ; (OFFSET) {{{1
   mov di, offset screenBuffer
   add di, [bx]
 
-  mov al, 15
+  mov al, COLOR_WHITE
   mov es:[di], al ; set pixel
 
   pop es
@@ -494,7 +567,7 @@ Line_renderHorizontal proc near ; (OFFSET, WIDTH) {{{1
   ; Draw upper horizontal line
   mov di, ax
   mov cx, [bp + 4][0] ; WIDTH
-  mov al, 15          ; color
+  mov al, COLOR_WHITE ; color
   cld
   rep stosb           ; draw
 
@@ -521,13 +594,13 @@ Rectangle_render proc near ; (WIDTH, HEIGHT) {{{1
   mov ax, seg screenBuffer
   mov es, ax
 
-  mov ax, offset screenBuffer
-  add ax, [player1_position]
+  send player1, Player_getPosition
+  add ax, offset screenBuffer ; ax = screenBuffer + player1.position
 
   ; Draw upper horizontal line
   mov di, ax
   mov cx, [bp + 4][2] ; rect W
-  mov al, 15          ; color
+  mov al, COLOR_WHITE ; color
   cld
   rep stosb           ; draw
 
