@@ -1,4 +1,4 @@
-.MODEL small
+.MODEL large
 
 include string.inc
 

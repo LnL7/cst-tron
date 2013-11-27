@@ -1,6 +1,7 @@
 .MODEL large
 .STACK 2048
 
+include game.inc
 include screen.inc
 include string.inc
 
@@ -14,48 +15,16 @@ main proc near ; {{{1
   mov ds, ax
   mov es, ax
 
-  call Game_setup
-  xor  ax, ax
-  call Game_run
-  call Game_teardown
-
-  call Process_exit
-main endp
-
-; }}}1
-
-Game_run proc near ; ax => (0x00) {{{1
-  ; Tail recursive game loop
-
-  jnz Game_run
-  ret
-Game_run endp
-
-Game_setup proc near ; -> (:) {{{1
-  push bp
-  mov  bp, sp
-
   call Screen_setup
-
-  mov sp, bp
-  pop bp
-  ret
-Game_setup endp
-
-Game_teardown proc near ; -> (:) {{{1
-  push bp
-  mov  bp, sp
-
+  call Game_run
   call Screen_teardown
 
   mov  ax, offset String_kOk
   push ax
   call IO_puts ; ("OK. ")
 
-  mov sp, bp
-  pop bp
-  ret
-Game_teardown endp
+  call Process_exit
+main endp
 
 ; }}}1
 
