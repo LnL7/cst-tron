@@ -1,11 +1,10 @@
 .MODEL large
 .STACK 2048
 
+include screen.inc
 include string.inc
 
 .DATA
-
-_previousVideoMode db ?
 
 .CODE
 
@@ -36,11 +35,7 @@ Game_setup proc near ; -> (:) {{{1
   push bp
   mov  bp, sp
 
-  mov  ax, 13h
-  push ax
-  call Video_setMode ; (13h)
-
-  mov [_previousVideoMode], al
+  call Screen_setup
 
   mov sp, bp
   pop bp
@@ -51,9 +46,7 @@ Game_teardown proc near ; -> (:) {{{1
   push bp
   mov  bp, sp
 
-  mov  al, [_previousVideoMode]
-  push ax
-  call Video_setMode ; (previous)
+  call Screen_teardown
 
   mov  ax, offset String_kOk
   push ax
@@ -64,28 +57,7 @@ Game_teardown proc near ; -> (:) {{{1
   ret
 Game_teardown endp
 
-Video_setMode proc near ; (mode) -> (previous) {{{1
-  ; mode     :: (:VideoMode)
-  ; previous :: (:VideoMode)
-  push bp
-  mov  bp, sp
-  push bx
-
-  mov ah, 0fh ; al <- VideoMode
-  int 10h
-
-  mov bx, ax
-
-  mov ax, [bp + 4][0] ; (:mode) >>= VideoMode
-  int 10h
-
-  mov ax, bx
-
-  pop bx
-  mov sp, bp
-  pop bp
-  ret 2 ; (mode)
-Video_setMode endp
+; }}}1
 
 IO_puts proc near ; (string) -> (0x09:) {{{1
   ; string :: Offset [Char]
