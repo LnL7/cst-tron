@@ -2,34 +2,65 @@
 
 include screen.inc
 
-.DATA
+.FARDATA?
 
 _previousVideoMode db ?
 _pixelBuffer       db 64000 dup(?)
 
 .CODE
 
+assume ds:@fardata?, es:@fardata?
+
+Screen_setPixel proc far ; (position) -> IO () {{{1
+  ; position :: Int
+  push bp
+  mov  bp, sp
+  push bx
+  push ds
+
+  mov ax, @fardata?
+  mov ds, ax
+  mov es, ax
+
+  mov ax, offset _pixelBuffer
+  add ax, [bp + 6][0] ; position
+  mov bx, ax
+
+  mov al, Screen_kWhite
+  mov [bx], al
+
+  pop ds
+  pop bx
+  mov sp, bp
+  pop bp
+  retf 2 ; (position)
+Screen_setPixel endp
+
 Screen_update proc far ; -> (:) {{{1
   push bp
   mov  bp, sp
 
   ; TODO: don't mess with the buffer
-  mov [_pixelBuffer + 0],   Screen_kWhite
-  mov [_pixelBuffer + 321], Screen_kWhite
-  mov [_pixelBuffer + 642], Screen_kWhite
-  mov [_pixelBuffer + 963], Screen_kWhite
+  ; mov [_pixelBuffer + 0],   Screen_kWhite
+  ; mov [_pixelBuffer + 321], Screen_kWhite
+  ; mov [_pixelBuffer + 642], Screen_kWhite
+  ; mov [_pixelBuffer + 963], Screen_kWhite
 
   call Video_write
   call Video_clear
 
   mov sp, bp
   pop bp
-  ret
+  retf
 Screen_update endp
 
 Screen_setup proc far ; -> (:) {{{1
   push bp
   mov  bp, sp
+  push ds
+
+  mov ax, @fardata?
+  mov ds, ax
 
   mov  ax, 13h
   push ax
@@ -37,22 +68,28 @@ Screen_setup proc far ; -> (:) {{{1
 
   mov [_previousVideoMode], al
 
+  pop ds
   mov sp, bp
   pop bp
-  ret
+  retf
 Screen_setup endp
 
 Screen_teardown proc far ; -> (:) {{{1
   push bp
   mov  bp, sp
+  push ds
+
+  mov ax, @fardata?
+  mov ds, ax
 
   mov  al, [_previousVideoMode]
   push ax
   call Video_setMode ; (previous)
 
+  pop ds
   mov sp, bp
   pop bp
-  ret
+  retf
 Screen_teardown endp
 
 ; }}}1
@@ -64,7 +101,11 @@ Video_write proc near ; -> (:) {{{1
   push dx
   push si
   push di
+  push ds
   push es
+
+  mov ax, @fardata?
+  mov ds, ax
 
   ; Source Index
   mov ax, offset _pixelBuffer
@@ -82,6 +123,7 @@ Video_write proc near ; -> (:) {{{1
   rep movsw ; blit to screen
 
   pop es
+  pop ds
   pop di
   pop si
   pop dx
@@ -96,15 +138,21 @@ Video_clear proc near ; -> (:) {{{1
   mov  bp, sp
   push cx
   push di
+  push es
+
+  mov ax, @fardata?
+  mov es, ax
 
   ; Destination Index
   mov ax, offset _pixelBuffer
   mov di, ax
 
   mov cx, 64000 / 2
-  mov ax, Screen_kBlack
-  rep stosw
+  mov al, Screen_kBlack
+  mov ah, Screen_kBlack
+  rep stosw ; ax >>= (es:di)
 
+  pop es
   pop di
   pop cx
   mov sp, bp

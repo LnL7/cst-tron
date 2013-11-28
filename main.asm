@@ -3,11 +3,14 @@
 
 include game.inc
 include screen.inc
-include string.inc
 
 .DATA
 
+String_Ok db "OK. $"
+
 .CODE
+
+assume ds:@data, es:@data
 
 main proc near ; {{{1
   ; Data Segment & Extra Segment
@@ -19,7 +22,7 @@ main proc near ; {{{1
   call Game_run
   call Screen_teardown
 
-  mov  ax, offset String_kOk
+  mov  ax, offset String_Ok
   push ax
   call IO_puts ; ("OK. ")
 
