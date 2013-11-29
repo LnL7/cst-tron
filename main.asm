@@ -4,6 +4,9 @@
 include game.inc
 include screen.inc
 
+DOS_exit   equ 4ch
+DOS_stdout equ 09h
+
 .DATA
 
 String_Ok db "OK. $"
@@ -31,7 +34,7 @@ main endp
 
 ; }}}1
 
-IO_puts proc near ; (string) -> (0x09:) {{{1
+IO_puts proc near ; (string) -> IO () {{{1
   ; string :: Offset [Char]
   push bp
   mov  bp, sp
@@ -40,7 +43,7 @@ IO_puts proc near ; (string) -> (0x09:) {{{1
   mov ax, [bp + 4][0] ; dx <- string
   mov dx, ax
 
-  mov ah, 09h ; dx >>= stdout
+  mov ah, DOS_stdout ; string >>= Stdout (dx)
   int 21h
 
   pop dx
@@ -49,8 +52,9 @@ IO_puts proc near ; (string) -> (0x09:) {{{1
   ret 2 ; (string)
 IO_puts endp
 
-Process_exit proc near ; -> (0x00) {{{1
-  mov ax, 4c00h ; 0x00 >>= exit
+Process_exit proc near ; IO () {{{1
+  mov ah, DOS_exit ; 0x00 >>= Exit ()
+  xor al, al
   int 21h
 Process_Exit endp
 

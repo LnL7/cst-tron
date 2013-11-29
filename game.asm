@@ -5,13 +5,14 @@ include screen.inc
 
 .FARDATA
 
-_playerTail dw 1024 dup(0)
+Player_data dw 1024 dup(0)
 
 .CODE
 
 assume ds:@fardata, es:@fardata
 
-Game_run proc far ; {{{1
+Game_run proc far ; IO () {{{1
+  ; position :: Int
   push bp
   mov  bp, sp
   push ds
@@ -22,13 +23,12 @@ Game_run proc far ; {{{1
   mov es, ax
 
 @@:
-  mov  ax, 321
+  mov  ax, 321 ; position
   push ax
-  call Screen_setPixel ; (321)
+  call Screen_setPixel ; (position)
 
   call Screen_update
 
-  ; TODO: use return value of Input
   mov ax, 2
   dec ax
   jnz @B

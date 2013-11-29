@@ -2,10 +2,13 @@
 
 include screen.inc
 
+DOS_mode  equ 0fh
+DOS_video equ 0a000h
+
 .FARDATA?
 
-_previousVideoMode db ?
-_pixelBuffer       db 64000 dup(?)
+Video_previousMode db ?
+Video_buffer       db 64000 dup(?)
 
 .CODE
 
@@ -22,12 +25,12 @@ Screen_setPixel proc far ; (position) -> IO () {{{1
   mov ds, ax
   mov es, ax
 
-  mov ax, offset _pixelBuffer
-  add ax, [bp + 6][0] ; position
+  mov ax, offset Video_buffer
+  add ax, [bp + 6][0] ; bx <- position
   mov bx, ax
 
   mov al, Screen_kWhite
-  mov [bx], al
+  mov [bx], al ; position <- Color (White)
 
   pop ds
   pop bx
@@ -36,15 +39,9 @@ Screen_setPixel proc far ; (position) -> IO () {{{1
   retf 2 ; (position)
 Screen_setPixel endp
 
-Screen_update proc far ; -> (:) {{{1
+Screen_update proc far ; IO () {{{1
   push bp
   mov  bp, sp
-
-  ; TODO: don't mess with the buffer
-  ; mov [_pixelBuffer + 0],   Screen_kWhite
-  ; mov [_pixelBuffer + 321], Screen_kWhite
-  ; mov [_pixelBuffer + 642], Screen_kWhite
-  ; mov [_pixelBuffer + 963], Screen_kWhite
 
   call Video_write
   call Video_clear
@@ -54,7 +51,9 @@ Screen_update proc far ; -> (:) {{{1
   retf
 Screen_update endp
 
-Screen_setup proc far ; -> (:) {{{1
+Screen_setup proc far ; IO () {{{1
+  ; mode     :: VideoMode
+  ; previous :: VideoMode
   push bp
   mov  bp, sp
   push ds
@@ -62,11 +61,13 @@ Screen_setup proc far ; -> (:) {{{1
   mov ax, @fardata?
   mov ds, ax
 
-  mov  ax, 13h
+  mov  ax, 13h ; mode
   push ax
-  call Video_setMode ; (13h)
+  call Video_setMode ; (mode)
 
-  mov [_previousVideoMode], al
+  mov [Video_previousMode], al ; previous <- VideoMode (al)
+
+  call Video_clear
 
   pop ds
   mov sp, bp
@@ -74,7 +75,8 @@ Screen_setup proc far ; -> (:) {{{1
   retf
 Screen_setup endp
 
-Screen_teardown proc far ; -> (:) {{{1
+Screen_teardown proc far ; IO () {{{1
+  ; previous :: VideoMode
   push bp
   mov  bp, sp
   push ds
@@ -82,7 +84,7 @@ Screen_teardown proc far ; -> (:) {{{1
   mov ax, @fardata?
   mov ds, ax
 
-  mov  al, [_previousVideoMode]
+  mov  al, [Video_previousMode] ; al <- VideoMode (previous)
   push ax
   call Video_setMode ; (previous)
 
@@ -92,9 +94,7 @@ Screen_teardown proc far ; -> (:) {{{1
   retf
 Screen_teardown endp
 
-; }}}1
-
-Video_write proc near ; -> (:) {{{1
+Video_write proc near ; IO () {{{1
   push bp
   mov  bp, sp
   push cx
@@ -108,11 +108,11 @@ Video_write proc near ; -> (:) {{{1
   mov ds, ax
 
   ; Source Index
-  mov ax, offset _pixelBuffer
+  mov ax, offset Video_buffer
   mov si, ax
 
   ; Extra Segment
-  mov ax, 0a000h ; video memory
+  mov ax, DOS_video
   mov es, ax
 
   xor di, di ; pixel 0
@@ -120,7 +120,7 @@ Video_write proc near ; -> (:) {{{1
   cld
   mov cx, 64000 / 2
   ; TODO: wait for VBlank
-  rep movsw ; blit to screen
+  rep movsw ; si >>= VideoMemory (es:di)
 
   pop es
   pop ds
@@ -133,7 +133,7 @@ Video_write proc near ; -> (:) {{{1
   ret
 Video_write endp
 
-Video_clear proc near ; -> (:) {{{1
+Video_clear proc near ; IO () {{{1
   push bp
   mov  bp, sp
   push cx
@@ -144,13 +144,13 @@ Video_clear proc near ; -> (:) {{{1
   mov es, ax
 
   ; Destination Index
-  mov ax, offset _pixelBuffer
+  mov ax, offset Video_buffer
   mov di, ax
 
   mov cx, 64000 / 2
   mov al, Screen_kBlack
   mov ah, Screen_kBlack
-  rep stosw ; ax >>= (es:di)
+  rep stosw ; ax >>= VideoBuffer (es:di)
 
   pop es
   pop di
@@ -160,19 +160,19 @@ Video_clear proc near ; -> (:) {{{1
   ret
 Video_clear endp
 
-Video_setMode proc near ; (mode) -> (previous) {{{1
-  ; mode     :: (:VideoMode)
-  ; previous :: (:VideoMode)
+Video_setMode proc near ; (mode) -> IO (previous) {{{1
+  ; mode     :: VideoMode
+  ; previous :: VideoMode
   push bp
   mov  bp, sp
   push bx
 
-  mov ah, 0fh ; al <- VideoMode
+  mov ah, DOS_mode ; al <- VideoMode
   int 10h
 
   mov bx, ax
 
-  mov ax, [bp + 4][0] ; (:mode) >>= VideoMode
+  mov ax, [bp + 4][0] ; mode >>= VideoMode (ax)
   xor ah, ah
   int 10h
 
