@@ -2,8 +2,8 @@
 
 include screen.inc
 
-DOS_mode  equ 0fh
-DOS_video equ 0a000h
+DOS_kMode  equ 0fh
+DOS_kVideo equ 0a000h
 
 .FARDATA?
 
@@ -112,7 +112,7 @@ Video_write proc near ; IO () {{{1
   mov si, ax
 
   ; Extra Segment
-  mov ax, DOS_video
+  mov ax, DOS_kVideo
   mov es, ax
 
   xor di, di ; pixel 0
@@ -167,7 +167,7 @@ Video_setMode proc near ; (mode) -> IO (previous) {{{1
   mov  bp, sp
   push bx
 
-  mov ah, DOS_mode ; al <- VideoMode
+  mov ah, DOS_kMode ; al <- VideoMode
   int 10h
 
   mov bx, ax

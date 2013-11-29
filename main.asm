@@ -3,9 +3,10 @@
 
 include game.inc
 include screen.inc
+include input.inc
 
-DOS_exit   equ 4ch
-DOS_stdout equ 09h
+DOS_kExit   equ 4ch
+DOS_kStdout equ 09h
 
 .DATA
 
@@ -22,7 +23,9 @@ main proc near ; {{{1
   mov es, ax
 
   call Screen_setup
+  call Input_setup
   call Game_run
+  call Input_teardown
   call Screen_teardown
 
   mov  ax, offset String_Ok
@@ -43,7 +46,7 @@ IO_puts proc near ; (string) -> IO () {{{1
   mov ax, [bp + 4][0] ; dx <- string
   mov dx, ax
 
-  mov ah, DOS_stdout ; string >>= Stdout (dx)
+  mov ah, DOS_kStdout ; string >>= Stdout (dx)
   int 21h
 
   pop dx
@@ -53,7 +56,7 @@ IO_puts proc near ; (string) -> IO () {{{1
 IO_puts endp
 
 Process_exit proc near ; IO () {{{1
-  mov ah, DOS_exit ; 0x00 >>= Exit ()
+  mov ah, DOS_kExit ; 0x00 >>= Exit ()
   xor al, al
   int 21h
 Process_Exit endp

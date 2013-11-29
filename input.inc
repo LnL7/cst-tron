@@ -1,0 +1,19 @@
+externdef Input_setup:FAR, Input_teardown:FAR
+
+Input_kEsc       equ 01h
+Input_kOne       equ 02h
+Input_kTwo       equ 03h
+Input_kThree     equ 04h
+Input_kFour      equ 05h
+Input_kFive      equ 06h
+Input_kSix       equ 07h
+Input_kSeven     equ 08h
+Input_kEight     equ 09h
+Input_kNine      equ 0ah
+Input_kZero      equ 0bh
+Input_kBackspace equ 0eh
+Input_kTab       equ 0fh
+Input_kUp        equ 48h
+Input_kDown      equ 50h
+Input_kLeft      equ 4bh
+Input_kRight     equ 4dh

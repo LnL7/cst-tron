@@ -2,6 +2,7 @@
 
 include game.inc
 include screen.inc
+include input.inc
 
 .FARDATA
 
@@ -22,15 +23,16 @@ Game_run proc far ; IO () {{{1
   mov ds, ax
   mov es, ax
 
+  mov word ptr [Player_data][0], 32
+
 @@:
-  mov  ax, 321 ; position
+  mov  ax, [Player_data][0]
   push ax
   call Screen_setPixel ; (position)
 
   call Screen_update
 
-  mov ax, 2
-  dec ax
+  dec word ptr [Player_data][0]
   jnz @B
 
   pop es
