@@ -173,6 +173,7 @@ Video_setMode proc near ; (mode) -> (previous) {{{1
   mov bx, ax
 
   mov ax, [bp + 4][0] ; (:mode) >>= VideoMode
+  xor ah, ah
   int 10h
 
   mov ax, bx
