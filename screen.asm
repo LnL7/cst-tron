@@ -23,7 +23,6 @@ Screen_setPixel proc far ; (position) -> IO () {{{1
 
   mov ax, @fardata?
   mov ds, ax
-  mov es, ax
 
   mov ax, offset Video_buffer
   add ax, [bp + 6][0] ; bx <- position

@@ -130,6 +130,7 @@ Keyboard_setHandler proc near ; (segment, offset) -> IO () {{{1
 Keyboard_setHandler endp
 
 Keyboard_handler proc near ; Interrupt () {{{1
+  push ax
   push bx
   push si
   push ds
@@ -138,6 +139,7 @@ Keyboard_handler proc near ; Interrupt () {{{1
   mov ds, ax
 
   sti
+
   in  al, KEY_kBuffer
   mov bl, al
   mov [Keyboard_scanCode], al
@@ -168,6 +170,7 @@ Keyboard_handler proc near ; Interrupt () {{{1
   pop ds
   pop si
   pop bx
+  pop ax
   iret
 Keyboard_handler endp
 

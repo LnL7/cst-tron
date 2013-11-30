@@ -59,7 +59,7 @@ Process_exit proc near ; IO () {{{1
   mov ah, DOS_kExit ; 0x00 >>= Exit ()
   xor al, al
   int 21h
-Process_Exit endp
+Process_exit endp
 
 ; }}}1
 
