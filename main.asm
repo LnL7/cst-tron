@@ -24,6 +24,7 @@ main proc near ; {{{1
 
   call Screen_setup
   call Input_setup
+  call Game_setup
   call Game_run
   call Input_teardown
   call Screen_teardown

@@ -9,6 +9,24 @@ KEY_kBuffer  equ 60h
 KEY_kControl equ 61h
 KEY_kPicPort equ 20h
 
+KEY_kEsc       equ 01h
+KEY_kOne       equ 02h
+KEY_kTwo       equ 03h
+KEY_kThree     equ 04h
+KEY_kFour      equ 05h
+KEY_kFive      equ 06h
+KEY_kSix       equ 07h
+KEY_kSeven     equ 08h
+KEY_kEight     equ 09h
+KEY_kNine      equ 0ah
+KEY_kZero      equ 0bh
+KEY_kBackspace equ 0eh
+KEY_kTab       equ 0fh
+KEY_kUp        equ 48h
+KEY_kDown      equ 50h
+KEY_kLeft      equ 4bh
+KEY_kRight     equ 4dh
+
 .FARDATA?
 
 Keyboard_previousHandler dw 2 dup(?)
@@ -19,6 +37,84 @@ Keyboard_scanCode        db ?
 .CODE
 
 assume ds:@fardata?, es:@fardata?
+
+Input_isActive proc far ; IO (active) {{{1
+  ; active :: Bool
+  push bp
+  mov  bp, sp
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata?
+  mov ds, ax
+
+  mov al, [Keyboard_active] ; al <- Keyboard (active)
+  xor ah, ah
+
+  pop ds
+  mov sp, bp
+  pop bp
+  retf
+Input_isActive endp
+
+Input_arrowKeys proc far ; (segment, direction) -> IO () {{{1
+  ; segment   :: Seg Player (direction)
+  ; direction :: Offset Player (direction)
+  push bp
+  mov  bp, sp
+  push bx
+  push dx
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata?
+  mov ds, ax
+
+  mov dx, Input_kNone
+
+  mov al, [Keyboard_state][KEY_kUp]
+  cmp al, 0
+  jz @F
+  mov dx, Input_kUp
+@@:
+
+  mov al, [Keyboard_state][KEY_kDown]
+  cmp al, 0
+  jz @F
+  mov dx, Input_kDown
+@@:
+
+  mov al, [Keyboard_state][KEY_kLeft]
+  cmp al, 0
+  jz @F
+  mov dx, Input_kLeft
+@@:
+
+  mov al, [Keyboard_state][KEY_kRight]
+  cmp al, 0
+  jz @F
+  mov dx, Input_kRight
+@@:
+
+  cmp dx, Input_kNone
+  je  @F
+
+  ; Data Segment
+  mov ax, [bp + 6][2] ; segment
+  mov ds, ax
+
+  mov ax, [bp + 6][0] ; direction
+  mov bx, ax
+  mov [bx], dx
+@@:
+
+  pop ds
+  pop dx
+  pop bx
+  mov sp, bp
+  pop bp
+  retf 4 ; (segment, direction)
+Input_arrowKeys endp
 
 Input_setup proc far ; IO () {{{1
   push bp
