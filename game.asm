@@ -116,10 +116,11 @@ Player_input proc near ; {{{1
   mov ax, @fardata
   mov ds, ax
 
-  push ds ; Segment Player (direction)
-  mov  ax, offset [Player_left][TAG_kDirection]
-  push ax
-  call Input_arrowKeys ; (segment, direction)
+  call Input_arrowKeys
+  cmp ax, Input_kNone
+  je  @F
+  mov [Player_left][TAG_kDirection], ax
+@@:
 
   pop ds
   mov sp, bp

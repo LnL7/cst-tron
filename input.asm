@@ -57,63 +57,49 @@ Input_isActive proc far ; IO (active) {{{1
   retf
 Input_isActive endp
 
-Input_arrowKeys proc far ; (segment, direction) -> IO () {{{1
-  ; segment   :: Seg Player (direction)
-  ; direction :: Offset Player (direction)
+Input_arrowKeys proc far ; IO () {{{1
   push bp
   mov  bp, sp
   push bx
-  push dx
   push ds
 
   ; Data Segment
   mov ax, @fardata?
   mov ds, ax
 
-  mov dx, Input_kNone
+  mov bx, Input_kNone
 
   mov al, [Keyboard_state][KEY_kUp]
   cmp al, 0
   jz @F
-  mov dx, Input_kUp
+  mov bx, Input_kUp
 @@:
 
   mov al, [Keyboard_state][KEY_kDown]
   cmp al, 0
   jz @F
-  mov dx, Input_kDown
+  mov bx, Input_kDown
 @@:
 
   mov al, [Keyboard_state][KEY_kLeft]
   cmp al, 0
   jz @F
-  mov dx, Input_kLeft
+  mov bx, Input_kLeft
 @@:
 
   mov al, [Keyboard_state][KEY_kRight]
   cmp al, 0
   jz @F
-  mov dx, Input_kRight
+  mov bx, Input_kRight
 @@:
 
-  cmp dx, Input_kNone
-  je  @F
-
-  ; Data Segment
-  mov ax, [bp + 6][2] ; segment
-  mov ds, ax
-
-  mov ax, [bp + 6][0] ; direction
-  mov bx, ax
-  mov [bx], dx
-@@:
+  mov ax, bx ; return Direction
 
   pop ds
-  pop dx
   pop bx
   mov sp, bp
   pop bp
-  retf 4 ; (segment, direction)
+  retf
 Input_arrowKeys endp
 
 Input_setup proc far ; IO () {{{1
