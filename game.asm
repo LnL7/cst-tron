@@ -74,7 +74,7 @@ Player_alloc proc near ; IO () {{{1
   mov ax, @fardata
   mov ds, ax
 
-  mov al, Screen_kWhite
+  mov al, Screen_kGray
   mov ah, Screen_kWhite
   mov [Player_left][TAG_kColor], ax ; color = (White:White)
 
@@ -127,7 +127,70 @@ Player_input proc near ; {{{1
   ret
 Player_input endp
 
-Player_render proc near ; (player) {{{1
+Player_render proc near ; (player) -> IO () {{{1
+  ; player :: Offset Player
+  push bp
+  mov  bp, sp
+
+  mov  ax, [bp + 4][0] ; player
+  push ax
+  call Player_renderTail
+
+  mov  ax, [bp + 4][0] ; player
+  push ax
+  call Player_renderHead
+
+  mov sp, bp
+  pop bp
+  ret 2 ; (player)
+Player_render endp
+
+Player_renderTail proc near ; (player) -> IO () {{{1
+  ; player :: Offset Player
+  push bp
+  mov  bp, sp
+  push bx
+  push dx
+  push si
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata
+  mov ds, ax
+
+  mov ax, [bp + 4][0] ; player
+  mov bx, ax
+
+  mov ax, [bx][TAG_kColor]
+  mov dx, ax ; dl <- Player (_:color)
+
+  mov ax, bx
+  add ax, TAG_kTail
+  mov si, ax ; si <- Player[tail]
+
+@@:
+  push dx
+  mov  ax, [si]
+  push ax
+  call Screen_setPixel ; (color, position)
+
+  ; Increment word offset (= 2 bytes)
+  inc si
+  inc si
+
+  cmp si, [bx][TAG_kIndex]
+  jl  @B ; unless(bx == END)
+
+  pop ds
+  pop si
+  pop dx
+  pop bx
+  mov sp, bp
+  pop bp
+  ret 2 ; (player)
+Player_renderTail endp
+
+Player_renderHead proc near ; (player) -> IO () {{{1
   ; player :: Offset Player
   push bp
   mov  bp, sp
@@ -138,31 +201,22 @@ Player_render proc near ; (player) {{{1
   mov ax, @fardata
   mov ds, ax
 
-  mov  ax, [Player_left][TAG_kPosition]
-  push ax
-  call Screen_setPixel ; (position)
-
-  mov ax, offset [Player_left][TAG_kTail]
+  mov ax, [bp + 4][0] ; player
   mov bx, ax
 
-@@:
-  mov  ax, [bx]
+  mov  ax, [bx][TAG_kColor]
+  mov  al, ah ; al <- Player (color:_)
   push ax
-  call Screen_setPixel
-
-  ; Increment word offset (= 2 bytes)
-  inc bx
-  inc bx
-
-  cmp bx, [Player_left][TAG_kIndex]
-  jl  @B ; unless(bx == END)
+  mov  ax, [bx][TAG_kPosition]
+  push ax
+  call Screen_setPixel ; (color, position)
 
   pop ds
   pop bx
   mov sp, bp
   pop bp
   ret 2 ; (player)
-Player_render endp
+Player_renderHead endp
 
 Player_update proc near ; (player) {{{1
   ; player :: Offset Player

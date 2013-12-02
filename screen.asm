@@ -14,7 +14,8 @@ Video_buffer       db 64000 dup(?)
 
 assume ds:@fardata?, es:@fardata?
 
-Screen_setPixel proc far ; (position) -> IO () {{{1
+Screen_setPixel proc far ; (color, position) -> IO () {{{1
+  ; color :: Color
   ; position :: Int
   push bp
   mov  bp, sp
@@ -28,7 +29,7 @@ Screen_setPixel proc far ; (position) -> IO () {{{1
   add ax, [bp + 6][0] ; bx <- position
   mov bx, ax
 
-  mov al, Screen_kWhite
+  mov ax, [bp + 6][2] ; color
   mov [bx], al ; position <- Color (White)
 
   pop ds
