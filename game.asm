@@ -59,6 +59,7 @@ Game_setup proc far ; IO () {{{1
   mov  bp, sp
 
   call Player_alloc
+  call Player_init
 
   mov sp, bp
   pop bp
@@ -89,6 +90,21 @@ Player_alloc proc near ; IO () {{{1
   inc ax
   mov [Player_left][TAG_kPosition], ax
 
+  pop ds
+  mov sp, bp
+  pop bp
+  ret
+Player_alloc endp
+
+Player_init proc near ; IO () {{{1
+  push bp
+  mov  bp, sp
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata
+  mov ds, ax
+
   ; Initialize Jump Table
   mov ax, offset Player_moveNone
   mov [Player_directions][Input_kNone], ax
@@ -105,7 +121,7 @@ Player_alloc proc near ; IO () {{{1
   mov sp, bp
   pop bp
   ret
-Player_alloc endp
+Player_init endp
 
 Player_input proc near ; {{{1
   push bp
