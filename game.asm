@@ -12,7 +12,8 @@ TAG_kTail      equ 08h
 
 .FARDATA
 
-Player_left       dw 1024 dup(0)
+Player_left       dw 16000 dup(0)
+Player_right      dw 16000 dup(0)
 Player_directions dw 5 dup(0) ; Jump table with label offsets
 
 .CODE
@@ -141,6 +142,21 @@ Player_render proc near ; (player) {{{1
   push ax
   call Screen_setPixel ; (position)
 
+  mov ax, offset [Player_left][TAG_kTail]
+  mov bx, ax
+
+@@:
+  mov  ax, [bx]
+  push ax
+  call Screen_setPixel
+
+  ; Increment word offset (= 2 bytes)
+  inc bx
+  inc bx
+
+  cmp bx, [Player_left][TAG_kIndex]
+  jl  @B ; unless(bx == END)
+
   pop ds
   pop bx
   mov sp, bp
@@ -158,6 +174,15 @@ Player_update proc near ; (player) {{{1
   ; Data Segment
   mov ax, @fardata
   mov ds, ax
+
+  mov ax, [bp + 4][0] ; player
+  mov bx, ax
+
+  push ax
+  call Player_setTail ; (player)
+
+  inc word ptr [bx][TAG_kIndex]
+  inc word ptr [bx][TAG_kIndex]
 
   mov ax, [bp + 4][0] ; player
   mov bx, ax
@@ -272,6 +297,35 @@ Player_moveRight proc near ; (player) -> IO () {{{1
   pop bp
   ret 2 ; (player)
 Player_moveRight endp
+
+Player_setTail proc near ; (player) -> IO () {{{1
+  ; player :: Offset Player
+  push bp
+  mov  bp, sp
+  push bx
+  push dx
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata
+  mov ds, ax
+
+  mov ax, [bp + 4][0] ; player
+  mov bx, ax
+
+  mov dx, [bx][TAG_kPosition]
+  mov ax, [bx][TAG_kIndex]
+  mov bx, ax
+
+  mov [bx], dx
+
+  pop ds
+  pop dx
+  pop bx
+  mov sp, bp
+  pop bp
+  ret 2 ; (player)
+Player_setTail endp
 
 ; }}}1
 
