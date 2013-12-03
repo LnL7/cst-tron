@@ -36,16 +36,22 @@ Game_run proc far ; IO () {{{1
   mov  ax, offset Player_left
   push ax
   call Player_update ; (player)
+  mov  ax, offset Player_right
+  push ax
+  call Player_update ; (player)
 
   mov  ax, offset Player_left
+  push ax
+  call Player_render ; (player)
+  mov  ax, offset Player_right
   push ax
   call Player_render ; (player)
 
   call Screen_update
 
-  mov ax, 2
-  dec ax
-  jnz @B
+  call Input_escapeKey
+  cmp ax, 0
+  je  @B
 
   pop ds
   pop bx
@@ -75,20 +81,35 @@ Player_alloc proc near ; IO () {{{1
   mov ax, @fardata
   mov ds, ax
 
+  ; Allocate left player
   mov al, Screen_kGray
   mov ah, Screen_kWhite
   mov [Player_left][TAG_kColor], ax ; color = (White:White)
 
-  mov ax, Input_kNone
+  mov ax, Input_kRight
   mov [Player_left][TAG_kDirection], ax ; direction = None
+
+  mov ax, Screen_kWidth
+  inc ax
+  mov [Player_left][TAG_kPosition], ax
 
   mov ax, offset [Player_left][TAG_kTail]
   mov [Player_left][TAG_kIndex], ax ; index = Tail[0]
 
-  ; Initialize starting position
-  mov ax, Screen_kWidth
-  inc ax
-  mov [Player_left][TAG_kPosition], ax
+  ; Allocate right player
+  mov al, Screen_kWhite
+  mov ah, Screen_kGray
+  mov [Player_right][TAG_kColor], ax ; color = (White:White)
+
+  mov ax, Input_kLeft
+  mov [Player_right][TAG_kDirection], ax ; direction = None
+
+  mov ax, Screen_kWidth * 2
+  sub ax, 2
+  mov [Player_right][TAG_kPosition], ax
+
+  mov ax, offset [Player_right][TAG_kTail]
+  mov [Player_right][TAG_kIndex], ax ; index = Tail[0]
 
   pop ds
   mov sp, bp
@@ -132,11 +153,23 @@ Player_input proc near ; {{{1
   mov ax, @fardata
   mov ds, ax
 
+  call Input_isActive
+  cmp ax, 0 ; false
+  je  @done
+
+@left:
   call Input_arrowKeys
   cmp ax, Input_kNone
-  je  @F
+  je  @right
   mov [Player_left][TAG_kDirection], ax
-@@:
+
+@right:
+  call Input_wsdaKeys
+  cmp ax, Input_kNone
+  je  @done
+  mov [Player_right][TAG_kDirection], ax
+
+@done:
 
   pop ds
   mov sp, bp
@@ -196,7 +229,8 @@ Player_renderTail proc near ; (player) -> IO () {{{1
   inc si
 
   cmp si, [bx][TAG_kIndex]
-  jl  @B ; unless(bx == END)
+  ; TODO: fails with jl
+  jne @B ; unless(bx == END)
 
   pop ds
   pop si
@@ -296,14 +330,11 @@ Player_update proc near ; (player) {{{1
   mov ax, [bp + 4][0] ; player
   mov bx, ax
 
-  push ax
+  push bx
   call Player_setTail ; (player)
 
   inc word ptr [bx][TAG_kIndex]
   inc word ptr [bx][TAG_kIndex]
-
-  mov ax, [bp + 4][0] ; player
-  mov bx, ax
 
   mov ax, [bx][TAG_kDirection]
   mov bx, ax

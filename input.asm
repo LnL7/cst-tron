@@ -22,6 +22,10 @@ KEY_kNine      equ 0ah
 KEY_kZero      equ 0bh
 KEY_kBackspace equ 0eh
 KEY_kTab       equ 0fh
+KEY_kA         equ 1eh
+KEY_kS         equ 1fh
+KEY_kW         equ 11h
+KEY_kD         equ 20h
 KEY_kUp        equ 48h
 KEY_kDown      equ 50h
 KEY_kLeft      equ 4bh
@@ -57,7 +61,7 @@ Input_isActive proc far ; IO (active) {{{1
   retf
 Input_isActive endp
 
-Input_arrowKeys proc far ; IO () {{{1
+Input_arrowKeys proc far ; IO (direction) {{{1
   push bp
   mov  bp, sp
   push bx
@@ -101,6 +105,69 @@ Input_arrowKeys proc far ; IO () {{{1
   pop bp
   retf
 Input_arrowKeys endp
+
+Input_wsdaKeys proc far ; IO (direction) {{{1
+  push bp
+  mov  bp, sp
+  push bx
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata?
+  mov ds, ax
+
+  mov bx, Input_kNone
+
+  mov al, [Keyboard_state][KEY_kW]
+  cmp al, 0
+  jz @F
+  mov bx, Input_kUp
+@@:
+
+  mov al, [Keyboard_state][KEY_kS]
+  cmp al, 0
+  jz @F
+  mov bx, Input_kDown
+@@:
+
+  mov al, [Keyboard_state][KEY_kA]
+  cmp al, 0
+  jz @F
+  mov bx, Input_kLeft
+@@:
+
+  mov al, [Keyboard_state][KEY_kD]
+  cmp al, 0
+  jz @F
+  mov bx, Input_kRight
+@@:
+
+  mov ax, bx ; return Direction
+
+  pop ds
+  pop bx
+  mov sp, bp
+  pop bp
+  retf
+Input_wsdaKeys endp
+
+Input_escapeKey proc far ; IO () {{{1
+  push bp
+  mov  bp, sp
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata?
+  mov ds, ax
+
+  mov al, [Keyboard_state][KEY_kEsc]
+  xor ah, ah
+
+  pop ds
+  mov sp, bp
+  pop bp
+  ret
+Input_escapeKey endp
 
 Input_setup proc far ; IO () {{{1
   push bp
