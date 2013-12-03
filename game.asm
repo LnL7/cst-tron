@@ -109,6 +109,7 @@ Player_alloc proc near ; IO () {{{1
   mov [Player_right][TAG_kPosition], ax
 
   mov ax, offset [Player_right][TAG_kTail]
+  add ax, 2
   mov [Player_right][TAG_kIndex], ax ; index = Tail[0]
 
   pop ds
@@ -157,7 +158,7 @@ Player_init proc near ; IO () {{{1
   ret
 Player_init endp
 
-Player_input proc near ; {{{1
+Player_input proc near ; IO () {{{1
   push bp
   mov  bp, sp
   push bx
@@ -245,9 +246,17 @@ Player_renderTail proc near ; (player) -> IO () {{{1
   mov ax, [bx][TAG_kColor]
   mov dx, ax ; dl <- Player (_:color)
 
+  ; TODO: lea ax, [bx][TAG_kIndex]
   mov ax, bx
-  add ax, TAG_kTail
-  mov si, ax ; si <- Player[tail]
+  add ax, TAG_kIndex
+  mov bx, ax
+  mov ax, [bx]
+  mov si, ax ; si <- Player[index]
+
+  mov ax, [bp + 4][0] ; player
+  mov bx, ax
+
+  sub si, 4
 
 @@:
   push dx
@@ -256,12 +265,14 @@ Player_renderTail proc near ; (player) -> IO () {{{1
   call Screen_setPixel ; (color, position)
 
   ; Increment word offset (= 2 bytes)
-  inc si
-  inc si
+  ; Skip over other player
+  sub si, 4
 
-  cmp si, [bx][TAG_kIndex]
-  ; TODO: fails with jl
-  jne @B ; unless(bx == END)
+  mov ax, bx
+  add ax, TAG_kTail
+  cmp si, ax
+  ; TODO: fails with jg <= signed intergers
+  jae @B ; unless(bx == END)
 
   pop ds
   pop si
@@ -364,8 +375,7 @@ Player_update proc near ; (player) {{{1
   push bx
   call Player_setTail ; (player)
 
-  inc word ptr [bx][TAG_kIndex]
-  inc word ptr [bx][TAG_kIndex]
+  add word ptr [bx][TAG_kIndex], 4
 
   mov ax, [bx][TAG_kDirection]
   mov bx, ax
