@@ -208,10 +208,13 @@ Player_renderTail proc near ; (player) -> IO () {{{1
 Player_renderTail endp
 
 Player_renderHead proc near ; (player) -> IO () {{{1
+  ; TODO: cleanup
   ; player :: Offset Player
   push bp
   mov  bp, sp
   push bx
+  push cx
+  push dx
   push ds
 
   ; Data Segment
@@ -221,14 +224,58 @@ Player_renderHead proc near ; (player) -> IO () {{{1
   mov ax, [bp + 4][0] ; player
   mov bx, ax
 
-  mov  ax, [bx][TAG_kColor]
-  mov  al, ah ; al <- Player (color:_)
-  push ax
-  mov  ax, [bx][TAG_kPosition]
-  push ax
-  call Screen_setPixel ; (color, position)
+  mov ax, [bx][TAG_kColor]
+  mov al, ah ; al <- Player (color:_)
+  mov dx, ax
+
+  mov ax, [bx][TAG_kPosition]
+  mov cx, ax
+  add cx, Screen_kWidth
+  dec cx
+
+  push dx
+  push cx
+  call Screen_setPixel
+  inc  cx
+  push dx
+  push cx
+  call Screen_setPixel
+  inc  cx
+  push dx
+  push cx
+  call Screen_setPixel
+
+  sub cx, Screen_kWidth
+
+  push dx
+  push cx
+  call Screen_setPixel
+  dec  cx
+  push dx
+  push cx
+  call Screen_setPixel
+  dec  cx
+  push dx
+  push cx
+  call Screen_setPixel
+
+  sub cx, Screen_kWidth
+
+  push dx
+  push cx
+  call Screen_setPixel
+  inc  cx
+  push dx
+  push cx
+  call Screen_setPixel
+  inc  cx
+  push dx
+  push cx
+  call Screen_setPixel
 
   pop ds
+  pop dx
+  pop cx
   pop bx
   mov sp, bp
   pop bp

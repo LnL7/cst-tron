@@ -39,6 +39,33 @@ Screen_setPixel proc far ; (color, position) -> IO () {{{1
   retf 2 ; (position)
 Screen_setPixel endp
 
+Screen_setLine proc far ; (color, words, position) -> IO () {{{1
+  push bp
+  mov  bp, sp
+  push cx
+  push di
+  push es
+
+  ; Data Segment
+  mov ax, @fardata?
+  mov es, ax
+
+  mov ax, [bp + 6][0] ; position
+  mov di, ax
+  mov ax, [bp + 6][2] ; words
+  mov cx, ax
+  mov ax, [bp + 6][4] ; color
+  cld
+  rep stosw ; al >>= (es:di)
+
+  pop es
+  pop di
+  pop cx
+  mov sp, bp
+  pop bp
+  ret 6 ; (color, words, position)
+Screen_setLine endp
+
 Screen_update proc far ; IO () {{{1
   push bp
   mov  bp, sp
