@@ -82,8 +82,8 @@ Player_alloc proc near ; IO () {{{1
   mov ds, ax
 
   ; Allocate left player
-  mov al, Screen_kGray
-  mov ah, Screen_kWhite
+  mov al, Screen_kCyan ; Color (tail)
+  mov ah, Screen_kBlue ; Color (head)
   mov [Player_left][TAG_kColor], ax ; color = (White:White)
 
   mov ax, Input_kRight
@@ -97,8 +97,8 @@ Player_alloc proc near ; IO () {{{1
   mov [Player_left][TAG_kIndex], ax ; index = Tail[0]
 
   ; Allocate right player
-  mov al, Screen_kWhite
-  mov ah, Screen_kGray
+  mov al, Screen_kYellow ; Color (tail)
+  mov ah, Screen_kRed ; Color (head)
   mov [Player_right][TAG_kColor], ax ; color = (White:White)
 
   mov ax, Input_kLeft
