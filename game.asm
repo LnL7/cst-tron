@@ -120,25 +120,38 @@ Player_alloc endp
 Player_init proc near ; IO () {{{1
   push bp
   mov  bp, sp
+  push bx
   push ds
 
   ; Data Segment
   mov ax, @fardata
   mov ds, ax
 
+  xor bh, bh
+
   ; Initialize Jump Table
   mov ax, offset Player_moveNone
   mov [Player_directions][Input_kNone], ax
+
+  mov al, Input_kUp
+  and al, Input_kVerticalMask
+  mov bl, al
   mov ax, offset Player_moveUp
-  mov [Player_directions][Input_kUp], ax
+  mov [Player_directions][bx], ax
+
+  mov al, Input_kDown
+  and al, Input_kVerticalMask
+  mov bl, al
   mov ax, offset Player_moveDown
-  mov [Player_directions][Input_kDown], ax
+  mov [Player_directions][bx], ax
+
   mov ax, offset Player_moveLeft
   mov [Player_directions][Input_kLeft], ax
   mov ax, offset Player_moveRight
   mov [Player_directions][Input_kRight], ax
 
   pop ds
+  pop bx
   mov sp, bp
   pop bp
   ret
@@ -147,6 +160,7 @@ Player_init endp
 Player_input proc near ; {{{1
   push bp
   mov  bp, sp
+  push bx
   push ds
 
   ; Data Segment
@@ -154,24 +168,41 @@ Player_input proc near ; {{{1
   mov ds, ax
 
   call Input_isActive
-  cmp ax, 0 ; false
+  cmp al, 0 ; false
   je  @done
 
 @left:
   call Input_arrowKeys
-  cmp ax, Input_kNone
+  cmp al, Input_kNone
   je  @right
+
+  mov bx, [Player_left][TAG_kDirection]
+  and bl, Input_kVerticalFlag
+  mov bh, al
+  and bh, Input_kVerticalFlag
+  cmp bl, bh
+  je  @right ; did not change horizontal/vertical
+
   mov [Player_left][TAG_kDirection], ax
 
 @right:
   call Input_wsdaKeys
-  cmp ax, Input_kNone
+  cmp al, Input_kNone
   je  @done
+
+  mov bx, [Player_right][TAG_kDirection]
+  and bl, Input_kVerticalFlag
+  mov bh, al
+  and bh, Input_kVerticalFlag
+  cmp bl, bh
+  je  @done ; did not change horizontal/vertical
+
   mov [Player_right][TAG_kDirection], ax
 
 @done:
 
   pop ds
+  pop bx
   mov sp, bp
   pop bp
   ret
@@ -338,6 +369,7 @@ Player_update proc near ; (player) {{{1
 
   mov ax, [bx][TAG_kDirection]
   mov bx, ax
+  and bl, Input_kVerticalMask
 
   mov  ax, [bp + 4][0] ; player
   push ax
