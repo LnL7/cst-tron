@@ -69,6 +69,19 @@ Game_run proc far ; IO () {{{1
   Player_right ax
   push ax
   call Player_update ; (player)
+  call Game_collide
+  cmp ax, 0
+  jne @done
+
+  Player_left ax
+  push ax
+  call Player_update ; (player)
+  Player_right ax
+  push ax
+  call Player_update ; (player)
+  call Game_collide
+  cmp ax, 0
+  jne @done
 
   Player_left ax
   push ax
@@ -83,7 +96,9 @@ Game_run proc far ; IO () {{{1
 
   call Input_escapeKey
   cmp ax, 0
-  je  @B
+  je @B
+
+@done:
 
   pop ds
   pop bx
@@ -105,6 +120,50 @@ Game_setup proc far ; IO () {{{1
   retf
 Game_setup endp
 
+Game_collide proc near ; IO (Bool) {{{1
+  push bp
+  mov  bp, sp
+  push bx
+  push cx
+  push dx
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata
+  mov ds, ax
+
+  Player_leftGet TAG_kPosition
+  mov cx, ax
+  Player_rightGet TAG_kPosition
+  mov dx, ax
+
+  Player_rightGet TAG_kIndex
+  mov bx, ax
+
+@@:
+  mov ax, [bx]
+  cmp ax, cx ; Tail[index] == position
+  je  @done
+  cmp ax, dx ; Tail[index] == position
+  je  @done
+
+  sub bx, 1*02h
+  cmp bx, [Game_data + TAG_kLevel]
+  jne @B
+
+  xor ax, ax ; return false
+@done:
+  ; return true
+
+  pop ds
+  pop dx
+  pop cx
+  pop bx
+  mov sp, bp
+  pop bp
+  ret
+Game_collide endp
+
 Player_alloc proc near ; IO () {{{1
   push bp
   mov  bp, sp
@@ -122,8 +181,7 @@ Player_alloc proc near ; IO () {{{1
   mov ax, Input_kRight
   Player_leftSet TAG_kDirection, ax ; direction = None
 
-  mov ax, Screen_kWidth
-  inc ax
+  mov ax, 10*Screen_kWidth + 10
   Player_leftSet TAG_kPosition, ax
 
   lea ax, [Game_data + TAG_kTails][0*02h]
@@ -137,8 +195,7 @@ Player_alloc proc near ; IO () {{{1
   mov ax, Input_kLeft
   Player_rightSet TAG_kDirection, ax ; direction = None
 
-  mov ax, Screen_kWidth * 2
-  sub ax, 2
+  mov ax, 11*Screen_kWidth - 9
   Player_rightSet TAG_kPosition, ax
 
   lea ax, [Game_data + TAG_kTails][1*02h]
