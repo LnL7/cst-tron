@@ -262,7 +262,7 @@ Player_input proc near ; IO () {{{1
   je  @done
 
 @left:
-  call Input_arrowKeys
+  call Input_wsdaKeys
   cmp al, Input_kNone
   je  @right
 
@@ -280,7 +280,7 @@ Player_input proc near ; IO () {{{1
   Player_leftSet TAG_kDirection, ax
 
 @right:
-  call Input_wsdaKeys
+  call Input_arrowKeys
   cmp al, Input_kNone
   je  @done
 
