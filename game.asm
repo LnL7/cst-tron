@@ -141,10 +141,12 @@ Game_collide proc near ; IO (Bool) {{{1
   mov bx, ax
 
 @@:
-  mov ax, [bx]
-  cmp ax, cx ; Tail[index] == position
+  cmp [bx], cx ; Tail[index] == position
+  mov ah, Game_kPlayerLeft
   je  @done
-  cmp ax, dx ; Tail[index] == position
+
+  cmp [bx], dx ; Tail[index] == position
+  mov ah, Game_kPlayerRight
   je  @done
 
   sub bx, 1*02h
@@ -152,6 +154,7 @@ Game_collide proc near ; IO (Bool) {{{1
   jne @B
 
   xor ax, ax ; return false
+
 @done:
   ; return true
 
