@@ -4,16 +4,22 @@ include game.inc
 include screen.inc
 include input.inc
 
-TAG_kColor      equ 00h
-TAG_kDirection  equ 02h
-TAG_kPosition   equ 04h
-TAG_kIndex      equ 06h
-TAG_kPlayerSize equ 08h
+CHAR_kOne   equ 49 ; 1 :: ASCII
+CHAR_kTwo   equ 50 ; 2 :: ASCII
+CHAR_kThree equ 51 ; 3 :: ASCII
+
+TAG_kColor        equ 00h
+TAG_kDirection    equ 02h
+TAG_kPosition     equ 04h
+TAG_kIndex        equ 06h
+TAG_kPlayerSize   equ 08h
+TAG_kBorderSize   equ 2*02h*Screen_kWidth + 2*02h*Screen_kHeight ; words
+TAG_kMaxLevelSize equ 02h*Screen_kWidth + 02h*Screen_kHeight ; words
 
 TAG_kPlayerLeft  equ 0*TAG_kPlayerSize
 TAG_kPlayerRight equ 1*TAG_kPlayerSize
 TAG_kLevel       equ 2*TAG_kPlayerSize
-TAG_kTails       equ TAG_kLevel + 4*Screen_kWidth + 4*Screen_kHeight
+TAG_kTails       equ TAG_kLevel + TAG_kBorderSize + TAG_kMaxLevelSize
 
 .FARDATA
 
@@ -107,7 +113,8 @@ Game_run proc far ; IO () {{{1
   retf
 Game_run endp
 
-Game_setup proc far ; IO () {{{1
+Game_setup proc far ; (char) -> IO () {{{1
+  ; char :: ASCII
   push bp
   mov  bp, sp
 
@@ -115,9 +122,28 @@ Game_setup proc far ; IO () {{{1
   call Player_init
   call Level_init
 
+  mov ax, [bp + 6][0] ; char
+  cmp al, CHAR_kOne
+  jne @F
+  call Level_initHorizontal
+@@:
+
+  mov ax, [bp + 6][0] ; char
+  cmp al, CHAR_kTwo
+  jne @F
+  call Level_initVertical
+@@:
+
+  mov ax, [bp + 6][0] ; char
+  cmp al, CHAR_kThree
+  jne @F
+  call Level_initHorizontal
+  call Level_initVertical
+@@:
+
   mov sp, bp
   pop bp
-  retf
+  retf 2 ; (char)
 Game_setup endp
 
 Game_collide proc near ; IO (Bool) {{{1
@@ -670,6 +696,66 @@ Level_init proc near ; {{{1
   pop bp
   ret
 Level_init endp
+
+Level_initHorizontal proc near ; IO () {{{1
+  push bp
+  mov  bp, sp
+  push bx
+  push cx
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata
+  mov ds, ax
+
+  lea bx, [Game_data + TAG_kLevel][TAG_kBorderSize]
+  mov cx, 100*Screen_kWidth - 2*10
+
+@@:
+  mov [bx], cx
+
+  add bx, 1*02h
+  dec cx
+  cmp cx, 99*Screen_kWidth + 2*10 + 1
+  jne @B
+
+  pop ds
+  pop cx
+  pop bx
+  mov sp, bp
+  pop bp
+  ret
+Level_initHorizontal endp
+
+Level_initVertical proc near ; IO () {{{1
+  push bp
+  mov  bp, sp
+  push bx
+  push cx
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata
+  mov ds, ax
+
+  lea bx, [Game_data + TAG_kLevel][TAG_kBorderSize + 02h*Screen_kWidth]
+  mov cx, Screen_kHeight*Screen_kWidth + Screen_kWidth/2 - 21*Screen_kWidth
+
+@@:
+  mov [bx], cx
+
+  add bx, 1*02h
+  sub cx, Screen_kWidth
+  cmp cx, 20*Screen_kWidth + Screen_kWidth/2
+  jne @B
+
+  pop ds
+  pop cx
+  pop bx
+  mov sp, bp
+  pop bp
+  ret
+Level_initVertical endp
 
 Level_render proc near ; {{{1
   push bp

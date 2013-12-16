@@ -9,22 +9,36 @@ DOS_kExit   equ 4ch
 DOS_kStdout equ 09h
 DOS_kStdin  equ 01h
 
+CHAR_kEndl equ 10
+CHAR_kEos  equ 36
+
 .DATA
 
-String_Help db "Tron: Light Cycles", 10,
-               "==================", 10,
-               "Right Player:",      10,
-               "    Arrow keys",     10,
-               "Left Player:",       10,
-               "    Up:    w",       10,
-               "    Down:  s",       10,
-               "    Left:  a",       10,
-               "    Right: d",       10,
-                                     36
+String_HelpControls db  CHAR_kEndl,
+  "Tron: Light Cycles", CHAR_kEndl,
+  "==================", CHAR_kEndl,
+                        CHAR_kEndl,
+  "Right Player:",      CHAR_kEndl,
+  "    Arrow keys",     CHAR_kEndl,
+                        CHAR_kEndl,
+  "Left Player:",       CHAR_kEndl,
+  "    Up:    w",       CHAR_kEndl,
+  "    Down:  s",       CHAR_kEndl,
+  "    Left:  a",       CHAR_kEndl,
+  "    Right: d",       CHAR_kEndl,
+                        CHAR_kEos
 
-String_Done         db "Done $"
-String_LeftCollide  db "Right Player wins! $"
-String_RightCollide db "Left Player wins! $"
+String_HelpLevel db        CHAR_kEndl,
+  "Select Level:",         CHAR_kEndl,
+  "  1) horizontal ",      CHAR_kEndl,
+  "  2) vertical ",        CHAR_kEndl,
+  "  3) cross ",           CHAR_kEndl,
+  "     otherwise empty ", CHAR_kEndl,
+                           CHAR_kEos
+
+String_Done         db "Done",               CHAR_kEos
+String_LeftCollide  db "Right Player wins!", CHAR_kEos
+String_RightCollide db "Left Player wins!",  CHAR_kEos
 
 .CODE
 
@@ -39,11 +53,13 @@ main proc near ; {{{1
   call Main_help
 
   call IO_getc
+  mov  bx, ax
 
   call Screen_setup
   call Input_setup
 
-  call Game_setup
+  push bx
+  call Game_setup ; (Char)
   call Game_run ; bx <- collided player id
   mov  bx, ax
 
@@ -60,7 +76,11 @@ Main_help proc near ; {{{1
   push bp
   mov  bp, sp
 
-  lea  ax, String_Help
+  lea  ax, String_HelpControls
+  push ax
+  call IO_puts
+
+  lea  ax, String_HelpLevel
   push ax
   call IO_puts
 
@@ -126,7 +146,7 @@ IO_puts proc near ; (string) -> IO () {{{1
   ret 2 ; (string)
 IO_puts endp
 
-IO_getc proc near ; {{{1
+IO_getc proc near ; IO (char) {{{1
   push bp
   mov  bp, sp
 
