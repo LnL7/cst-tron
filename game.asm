@@ -56,8 +56,8 @@ endm
 
 assume ds:@fardata, es:@fardata
 
-Game_run proc far ; IO () {{{1
-  ; position :: Int
+Game_run proc far ; (speed) -> IO (player) {{{1
+  ; speed :: Int
   push bp
   mov  bp, sp
   push bx
@@ -69,23 +69,9 @@ Game_run proc far ; IO () {{{1
 @@:
   call Player_input
 
-  Player_left ax
+  mov  ax, [bp + 6][0] ; speed
   push ax
-  call Player_update ; (player)
-  Player_right ax
-  push ax
-  call Player_update ; (player)
-  call Game_collide
-  cmp ax, 0
-  jne @done
-
-  Player_left ax
-  push ax
-  call Player_update ; (player)
-  Player_right ax
-  push ax
-  call Player_update ; (player)
-  call Game_collide
+  call Game_update ; ax <- (count)
   cmp ax, 0
   jne @done
 
@@ -110,8 +96,44 @@ Game_run proc far ; IO () {{{1
   pop bx
   mov sp, bp
   pop bp
-  retf
+  retf 2;
 Game_run endp
+
+Game_update proc near ; (speed) -> IO (bool) {{{1
+  ; speed :: Int
+  push bp
+  mov  bp, sp
+  push cx
+  push ds
+
+  ; Data Segment
+  mov ax, @fardata
+  mov ds, ax
+
+  mov ax, [bp + 4][0] ; speed
+  mov cx, ax
+
+@@:
+  Player_left ax
+  push ax
+  call Player_update ; (player)
+  Player_right ax
+  push ax
+  call Player_update ; (player)
+  call Game_collide
+  cmp ax, 0
+  jne @done
+
+  dec cx
+  jnz @B
+@done:
+
+  pop ds
+  pop cx
+  mov sp, bp
+  pop bp
+  ret 2 ; (speed)
+Game_update endp
 
 Game_setup proc far ; (char) -> IO () {{{1
   ; char :: ASCII

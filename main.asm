@@ -11,6 +11,7 @@ DOS_kStdin  equ 01h
 
 CHAR_kEndl equ 10
 CHAR_kEos  equ 36
+CHAR_kFour equ 52 ; 4 :: ASCII
 
 .DATA
 
@@ -33,12 +34,18 @@ String_HelpLevel db        CHAR_kEndl,
   "  1) horizontal ",      CHAR_kEndl,
   "  2) vertical ",        CHAR_kEndl,
   "  3) cross ",           CHAR_kEndl,
+  "  4) fast ",            CHAR_kEndl,
   "     otherwise empty ", CHAR_kEndl,
                            CHAR_kEos
 
-String_Done         db "Done",               CHAR_kEos
-String_LeftCollide  db "Right Player wins!", CHAR_kEos
-String_RightCollide db "Left Player wins!",  CHAR_kEos
+String_Done db CHAR_kEndl,
+  "Done",      CHAR_kEos
+
+String_LeftCollide  db  CHAR_kEndl,
+  "Right Player wins!", CHAR_kEos
+
+String_RightCollide db CHAR_kEndl,
+  "Left Player wins!", CHAR_kEos
 
 .CODE
 
@@ -60,6 +67,14 @@ main proc near ; {{{1
 
   push bx
   call Game_setup ; (Char)
+
+  mov ax, 2
+  cmp bl, CHAR_kFour ; fast level?
+  jne @F
+  add ax, 3
+@@:
+
+  push ax
   call Game_run ; bx <- collided player id
   mov  bx, ax
 
