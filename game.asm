@@ -21,6 +21,8 @@ TAG_kPlayerRight equ 1*TAG_kPlayerSize
 TAG_kLevel       equ 2*TAG_kPlayerSize
 TAG_kTails       equ TAG_kLevel + TAG_kBorderSize + TAG_kMaxLevelSize
 
+Player_kSize equ 1
+
 .FARDATA
 
 Game_data         dw 32000 dup(0)
@@ -72,7 +74,7 @@ Game_run proc far ; (speed) -> IO (player) {{{1
   mov  ax, [bp + 6][0] ; speed
   push ax
   call Game_update ; ax <- (count)
-  cmp ax, 0
+  cmp ax, 0 ; collision?
   jne @done
 
   Player_left ax
@@ -142,20 +144,23 @@ Game_setup proc far ; (char) -> IO () {{{1
 
   call Player_alloc
   call Player_init
-  call Level_init
+  call Level_init ; borders
 
+  ; Horizontal
   mov ax, [bp + 6][0] ; char
   cmp al, CHAR_kOne
   jne @F
   call Level_initHorizontal
 @@:
 
+  ; Vertical
   mov ax, [bp + 6][0] ; char
   cmp al, CHAR_kTwo
   jne @F
   call Level_initVertical
 @@:
 
+  ; Cross
   mov ax, [bp + 6][0] ; char
   cmp al, CHAR_kThree
   jne @F
@@ -275,13 +280,13 @@ Player_init proc near ; IO () {{{1
   mov [Player_directions][Input_kNone], ax
 
   mov al, Input_kUp
-  and al, Input_kVerticalMask
+  and al, Input_kVerticalMask ; remove vertical flag
   mov bl, al
   lea ax, Player_moveUp
   mov [Player_directions][bx], ax
 
   mov al, Input_kDown
-  and al, Input_kVerticalMask
+  and al, Input_kVerticalMask ; remove vertical flag
   mov bl, al
   lea ax, Player_moveDown
   mov [Player_directions][bx], ax
@@ -322,9 +327,9 @@ Player_input proc near ; IO () {{{1
   mov bx, ax
   pop ax
 
-  and bl, Input_kVerticalFlag
+  and bl, Input_kVerticalFlag ; current vertical?
   mov bh, al
-  and bh, Input_kVerticalFlag
+  and bh, Input_kVerticalFlag ; input vertical?
   cmp bl, bh
   je  @right ; did not change horizontal/vertical
 
@@ -340,9 +345,9 @@ Player_input proc near ; IO () {{{1
   mov bx, ax
   pop ax
 
-  and bl, Input_kVerticalFlag
+  and bl, Input_kVerticalFlag ; current vertical?
   mov bh, al
-  and bh, Input_kVerticalFlag
+  and bh, Input_kVerticalFlag ; input vertical?
   cmp bl, bh
   je  @done ; did not change horizontal/vertical
 
@@ -414,8 +419,7 @@ Player_renderTail proc near ; (player) -> IO () {{{1
   sub si, 2*02h
 
   cmp si, bx
-  ; TODO: explain jea (unsigned) vs jg (signed)
-  jae @B ; unless(bx == END)
+  jae @B ; unless(bx == END) unsigned interger
 
   pop ds
   pop si
@@ -448,49 +452,22 @@ Player_renderHead proc near ; (player) -> IO () {{{1
   mov dx, ax
 
   mov ax, [bx][TAG_kPosition]
-  mov cx, ax
-  add cx, Screen_kWidth
+  sub ax, Player_kSize*Screen_kWidth
+  sub ax, Player_kSize - 1
+  mov bx, ax ; bx <- top left position
+  mov cx, Player_kSize*2 + 1 ; height
+
+@@:
+
+  push dx
+  mov  ax, Player_kSize*2 + 1 ; width
+  push ax
+  push bx
+  call Screen_setLine ; (color, size, position)
+
+  add bx, Screen_kWidth
   dec cx
-
-  push dx
-  push cx
-  call Screen_setPixel
-  inc  cx
-  push dx
-  push cx
-  call Screen_setPixel
-  inc  cx
-  push dx
-  push cx
-  call Screen_setPixel
-
-  sub cx, Screen_kWidth
-
-  push dx
-  push cx
-  call Screen_setPixel
-  dec  cx
-  push dx
-  push cx
-  call Screen_setPixel
-  dec  cx
-  push dx
-  push cx
-  call Screen_setPixel
-
-  sub cx, Screen_kWidth
-
-  push dx
-  push cx
-  call Screen_setPixel
-  inc  cx
-  push dx
-  push cx
-  call Screen_setPixel
-  inc  cx
-  push dx
-  push cx
-  call Screen_setPixel
+  jnz @B
 
   pop ds
   pop dx
@@ -518,11 +495,11 @@ Player_update proc near ; (player) {{{1
   push bx
   call Player_setTail ; (player)
 
-  add word ptr [bx][TAG_kIndex], 2*02h
+  add word ptr [bx][TAG_kIndex], 2*02h ; index++
 
   mov ax, [bx][TAG_kDirection]
   mov bx, ax
-  and bl, Input_kVerticalMask
+  and bl, Input_kVerticalMask ; remove vertical flag
 
   mov  ax, [bp + 4][0] ; player
   push ax
@@ -651,7 +628,7 @@ Player_setTail proc near ; (player) -> IO () {{{1
   mov ax, [bx][TAG_kIndex]
   mov bx, ax
 
-  mov [bx], dx
+  mov [bx], dx ; Player[index] = position
 
   pop ds
   pop dx
@@ -661,7 +638,7 @@ Player_setTail proc near ; (player) -> IO () {{{1
   ret 2 ; (player)
 Player_setTail endp
 
-Level_init proc near ; {{{1
+Level_init proc near ; IO () {{{1
   push bp
   mov  bp, sp
   push bx
@@ -672,6 +649,7 @@ Level_init proc near ; {{{1
   ; Data Segment
   mov ax, @fardata
   mov ds, ax
+
   lea bx, [Game_data + TAG_kLevel]
 
   mov cx, Screen_kWidth
@@ -687,7 +665,7 @@ Level_init proc near ; {{{1
 @@:
   mov [bx], cx
 
-  add bx, 1*02h
+  add bx, 1*02h ; next
   dec cx
   cmp cx, Screen_kWidth*Screen_kHeight - Screen_kWidth
   jne @B
@@ -696,7 +674,7 @@ Level_init proc near ; {{{1
 @@:
   mov [bx], cx
 
-  add bx, 1*02h
+  add bx, 1*02h ; next
   sub cx, Screen_kWidth
   cmp cx, 0
   jne @B
@@ -736,7 +714,7 @@ Level_initHorizontal proc near ; IO () {{{1
 @@:
   mov [bx], cx
 
-  add bx, 1*02h
+  add bx, 1*02h ; next
   dec cx
   cmp cx, 99*Screen_kWidth + 2*10 + 1
   jne @B
@@ -766,7 +744,7 @@ Level_initVertical proc near ; IO () {{{1
 @@:
   mov [bx], cx
 
-  add bx, 1*02h
+  add bx, 1*02h ; next
   sub cx, Screen_kWidth
   cmp cx, 20*Screen_kWidth + Screen_kWidth/2
   jne @B
@@ -792,10 +770,10 @@ Level_render proc near ; {{{1
   mov ds, ax
 
   mov dx, Screen_kWhite
-  lea si, [Game_data + TAG_kTails] ; end
+  lea si, [Game_data + TAG_kTails - 1*02h] ; end
   lea bx, [Game_data + TAG_kLevel] ; begin
 
-  sub si, 1*02h ; skip Tails[0]
+  ; sub si, 1*02h ; skip Tails[0]
 
 @@:
   push dx
@@ -803,7 +781,7 @@ Level_render proc near ; {{{1
   push ax
   call Screen_setPixel ; (color, position)
 
-  sub si, 1*02h
+  sub si, 1*02h ; next
 
   cmp si, bx
   jae @B ; unless(bx == END)

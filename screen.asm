@@ -25,12 +25,12 @@ Screen_setPixel proc far ; (color, position) -> IO () {{{1
   mov ax, @fardata?
   mov ds, ax
 
-  mov ax, offset Video_buffer
-  add ax, [bp + 6][0] ; bx <- position
+  mov ax, [bp + 6][0] ; position
   mov bx, ax
+  lea bx, [Video_buffer][bx] ; Buffer[position]
 
   mov ax, [bp + 6][2] ; color
-  mov [bx], al ; position <- Color (White)
+  mov [bx], al ; Buffer[position] <- color
 
   pop ds
   pop bx
@@ -39,7 +39,7 @@ Screen_setPixel proc far ; (color, position) -> IO () {{{1
   retf 2 ; (position)
 Screen_setPixel endp
 
-Screen_setLine proc far ; (color, words, position) -> IO () {{{1
+Screen_setLine proc far ; (color, size, position) -> IO () {{{1
   push bp
   mov  bp, sp
   push cx
@@ -50,20 +50,20 @@ Screen_setLine proc far ; (color, words, position) -> IO () {{{1
   mov ax, @fardata?
   mov es, ax
 
-  mov ax, [bp + 6][0] ; position
+  mov ax, [bp + 6][0] ; di <- position
   mov di, ax
-  mov ax, [bp + 6][2] ; words
+  mov ax, [bp + 6][2] ; cx <- size
   mov cx, ax
-  mov ax, [bp + 6][4] ; color
+  mov ax, [bp + 6][4] ; al <- color
   cld
-  rep stosw ; al >>= (es:di)
+  rep stosb ; al >>= (es:di)
 
   pop es
   pop di
   pop cx
   mov sp, bp
   pop bp
-  ret 6 ; (color, words, position)
+  ret 6 ; (color, size, position)
 Screen_setLine endp
 
 Screen_update proc far ; IO () {{{1
@@ -145,8 +145,7 @@ Video_write proc near ; IO () {{{1
   xor di, di ; pixel 0
 
   cld
-  mov cx, 64000 / 2
-  ; TODO: wait for VBlank
+  mov cx, 64000 / 02h
   rep movsw ; si >>= VideoMemory (es:di)
 
   pop es
@@ -174,7 +173,7 @@ Video_clear proc near ; IO () {{{1
   mov ax, offset Video_buffer
   mov di, ax
 
-  mov cx, 64000 / 2
+  mov cx, 64000 / 02h
   mov al, Screen_kBlack
   mov ah, Screen_kBlack
   rep stosw ; ax >>= VideoBuffer (es:di)
